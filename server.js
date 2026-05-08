@@ -7,13 +7,26 @@ const path = require('path');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
+// ─── AUTENTICACIÓN ────────────────────────────────────────────────────────────
+const API_TOKEN = process.env.API_TOKEN || 'pendiente2024secret';
+
+function authMiddleware(req, res, next) {
+  // El webhook de WAHA no lleva token, solo las rutas de la app
+  if (req.path === '/webhook' || req.path === '/health') return next();
+  const token = req.headers['x-api-token'] || req.query.token;
+  if (token !== API_TOKEN) return res.status(401).json({ error: 'No autorizado' });
+  next();
+}
+
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Api-Token');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
+
+app.use(authMiddleware);
 
 // ─── SQLITE ───────────────────────────────────────────────────────────────────
 const db = new Database(path.join(__dirname, 'tasks.db'));
@@ -27,6 +40,8 @@ db.exec(`
     priority TEXT DEFAULT 'hoy',
     urgent INTEGER DEFAULT 0,
     category TEXT DEFAULT 'personal',
+    type TEXT DEFAULT 'pendiente',
+    from_me INTEGER DEFAULT 0,
     meeting_date TEXT,
     meeting_time TEXT,
     meeting_location TEXT,
@@ -34,89 +49,57 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     resolved_at DATETIME
   );
-`);
-
-// Migraciones seguras
-const cols = db.pragma('table_info(tasks)').map(c => c.name);
-if (!cols.includes('type')) { db.exec("ALTER TABLE tasks ADD COLUMN type TEXT DEFAULT 'pendiente'"); }
-if (!cols.includes('from_me')) { db.exec("ALTER TABLE tasks ADD COLUMN from_me INTEGER DEFAULT 0"); }
-
-db.exec(`
   CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
   CREATE INDEX IF NOT EXISTS idx_type ON tasks(type);
   CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
   CREATE INDEX IF NOT EXISTS idx_contact ON tasks(contact);
 `);
 
+const cols = db.pragma('table_info(tasks)').map(c => c.name);
+if (!cols.includes('type')) db.exec("ALTER TABLE tasks ADD COLUMN type TEXT DEFAULT 'pendiente'");
+if (!cols.includes('from_me')) db.exec("ALTER TABLE tasks ADD COLUMN from_me INTEGER DEFAULT 0");
+
 function cleanOldTasks() {
   const r = db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
-  if (r.changes > 0) console.log('Limpieza: ' + r.changes + ' tareas eliminadas');
+  if (r.changes > 0) console.log('Limpieza: ' + r.changes + ' tareas');
 }
 cleanOldTasks();
-const next3am = new Date(); next3am.setHours(3,0,0,0);
-if (next3am <= new Date()) next3am.setDate(next3am.getDate()+1);
-setTimeout(() => { cleanOldTasks(); setInterval(cleanOldTasks, 86400000); }, next3am - new Date());
+const n3 = new Date(); n3.setHours(3,0,0,0);
+if (n3 <= new Date()) n3.setDate(n3.getDate()+1);
+setTimeout(()=>{cleanOldTasks();setInterval(cleanOldTasks,86400000);},n3-new Date());
+
+// ─── COLA DE PROCESAMIENTO ────────────────────────────────────────────────────
+// Evita saturar Groq (30 req/min gratis) procesando de a 1 por vez con delay
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let queue = [];
+let processing = false;
+
+async function enqueue(job) {
+  queue.push(job);
+  if (!processing) processQueue();
+}
+
+async function processQueue() {
+  if (queue.length === 0) { processing = false; return; }
+  processing = true;
+  const job = queue.shift();
+  try {
+    await job();
+  } catch(e) {
+    console.error('Queue job error:', e.message);
+  }
+  // Esperar 2 segundos entre llamadas a Groq (máx 30/min = 1 cada 2s)
+  setTimeout(processQueue, 2000);
+}
 
 // ─── GROQ ─────────────────────────────────────────────────────────────────────
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// Buffer de conversación: guarda últimos mensajes de AMBOS lados por contacto
-let convBuffer = {}; // { contact: { msgs: [{text, fromMe}], timer } }
-
-// Keywords que disparan captura en mensajes RECIBIDOS
-const CAPTURE_RECEIVED = [
-  /cita|esta noche|esta tarde|nos vemos|te espero|a las \d|venís|vengo|paso a buscar|vení/i,
-  /reunión|reunion|meeting|junta|llamada|llámame|llamame|urgente|importante|licitacion|licitación/i,
-  /confirmá|confirmas|confirmame|me avisás|me avisas|podés|podes|necesito|necesitás|avisame|avísame/i,
-  /cotizame|cotización|cotizacion|presupuesto|novedades|como va|cómo va|hay algo|sabés algo/i,
-  /aduana|despacho|embarque|carga|contenedor|exolgan|terminal|packing|mercadería|mercaderia/i,
-  /factura|remito|cheque|transferencia|zelle|alias|te mando|te mandé|te mande/i,
-  /salimos|vamos|te animás|te animas|quedamos|juntamos|nos juntamos|asadito|venis\?|sumas\?/i,
-  /proveedor|alibaba|1688|paneles|importacion|importación/i,
-  /contame|me decís|me dices|mandame|pasame|necesito que/i,
-  // Palabras que indican acuerdo/plan coordinado
-  /el lunes|el martes|el miércoles|el jueves|el viernes|el sábado|el domingo/i,
-  /mañana|esta semana|la semana que viene|la próxima semana/i,
-];
-
-// Keywords para MIS mensajes que crean compromisos
-const CAPTURE_MY = [
-  /dale.{0,15}(nos vemos|ahí estoy|voy|me anoto|caigo|me copa|sumo|arranco|lunes|martes|miércoles|jueves|viernes)/i,
-  /nos vemos.{0,20}(mañana|hoy|lunes|martes|miércoles|jueves|viernes|sábado|domingo|d)/i,
-  /cenamos|almorzamos|juntamos.{0,20}(mañana|hoy|d)/i,
-  /me ocupo|yo me ocupo|lo hago|lo gestiono|te llamo|te mando|te confirmo|te aviso/i,
-  /quedamos.{0,20}(mañana|hoy|lunes|martes|miércoles|jueves|viernes|d)/i,
-  /paso a buscar|paso por|paso mañana/i,
-  /dale (el )?(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
-  /si te queda.{0,20}cerramos|ya lo cerramos/i,
-];
-
-// Keywords que indican ACUERDO en la conversación (independiente de quién habló último)
-const EVENT_AGREED = [
-  /dale (el )?(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
-  /dale (mañana|hoy|esta noche)/i,
-  /quedamos (el )?(lunes|martes|miércoles|jueves|viernes|sábado)/i,
-  /nos vemos (el )?(lunes|martes|miércoles|jueves|viernes|sábado|mañana)/i,
-  /confirmado|de una|va a ser el|arrancamos el|a las \d{1,2}(:\d{2})? (hs|am|pm)/i,
-  /sino dale (lunes|martes|miércoles|jueves|viernes|mañana|hoy)/i,
-];
-
-function hasCapture(text, patterns) {
-  return patterns.some(r => r.test(text));
-}
-
-function hasEventAgreed(messages) {
-  return messages.some(m => EVENT_AGREED.some(r => r.test(m.text)));
-}
+let convBuffer = {};
 
 async function analyzeConversation(contact, messages) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
-
-  // Formatear conversación mostrando quién habla
-  const conv = messages.map((m, i) =>
-    (i+1) + '. [' + (m.fromMe ? 'BRANDON' : contact) + ']: ' + m.text
-  ).join('\n');
+  const conv = messages.map((m,i) => (i+1)+'. ['+(m.fromMe?'BRANDON':contact)+']: '+m.text).join('\n');
+  const lastIsFromOther = messages.length > 0 && !messages[messages.length-1].fromMe;
 
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
@@ -125,67 +108,69 @@ async function analyzeConversation(contact, messages) {
       content: `Sos el asistente personal de Brandon. Analizá esta conversación de WhatsApp.
 Hora actual: ${timeStr}
 Contacto: ${contact}
+Último mensaje sin respuesta de Brandon: ${lastIsFromOther ? 'SÍ' : 'NO'}
 
-CONVERSACIÓN COMPLETA (ambos lados):
+CONVERSACIÓN:
 ${conv}
 
-IMPORTANTE: Analizá el CONTEXTO COMPLETO de la conversación, no solo el último mensaje.
-Buscá:
-1. ¿Quedó algún evento, reunión, cita o plan coordinado? (aunque Brandon haya mandado el último mensaje)
-2. ¿Hay alguna acción pendiente de Brandon? (responder, confirmar, llamar, pagar, enviar algo)
-3. ¿Brandon asumió algún compromiso? ("yo me ocupo", "te llamo", "dale el lunes")
+BUSCÁ en el CONTEXTO COMPLETO:
+1. ¿Evento, cita, reunión o plan acordado entre ambos? (dale el lunes, nos vemos mañana, sino dale X)
+2. ¿Tarea o pedido concreto para Brandon?
+3. ¿Brandon asumió un compromiso? ("yo me ocupo", "dale el lunes", "te llamo", "ya lo cerramos")
+4. ¿El último mensaje es del otro sin respuesta de Brandon?
+
+REGLAS:
+- Evento o compromiso acordado → needsAction:true, type:"mio"
+- El otro le pide algo → needsAction:true, type:"pendiente"
+- Brandon asumió compromiso → needsAction:true, type:"mio"
+- Último mensaje del otro sin respuesta → sinResponder:true
+- Charla sin acción, evento ni compromiso → needsAction:false
 
 CATEGORÍA:
 - "trabajo": nombre contiene transtide/financiera/cliente/proveedor/logistica/transporte/obra/aduana, o tema laboral
 - "personal": amigos, familia, pareja, planes sociales
 
 PRIORIDAD:
-- "ahora": urgente con hora concreta hoy
-- "hoy": acción necesaria hoy o plan para mañana
-- "semana": evento o plan esta semana
-- "ignorar": charla sin ningún evento ni acción pendiente
+- "ahora": urgente hoy con hora concreta
+- "hoy": acción necesaria hoy, plan para mañana
+- "semana": evento o plan esta semana o futura
+- "ignorar": charla pura sin eventos ni compromisos
 
-TIPO:
-- "pendiente": el otro le está pidiendo algo a Brandon
-- "mio": Brandon asumió un compromiso o quedó en algo
-
-Respondé SOLO en JSON:
+Respondé SOLO JSON:
 {
   "needsAction": true/false,
+  "sinResponder": true/false,
   "type": "pendiente|mio",
   "priority": "ahora|hoy|semana|ignorar",
   "category": "trabajo|personal",
-  "keyMessage": "el mensaje más relevante de la conversación (máx 70 chars)",
-  "task": "qué tiene que hacer Brandon, específico, máximo 8 palabras",
-  "meeting": { "date": "día/fecha si se acordó algo", "time": "hora si hay", "location": "lugar si hay" } o null,
+  "keyMessage": "mensaje más relevante (máx 70 chars)",
+  "task": "qué tiene que hacer Brandon, máximo 8 palabras",
+  "meeting": { "date": "día/fecha acordada", "time": "hora si hay", "location": "lugar si hay" } o null,
   "urgent": true/false
 }`
     }],
-    max_tokens: 300,
+    max_tokens: 350,
   });
 
-  try {
-    const content = res.choices[0].message.content.trim();
-    const match = content.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : { needsAction: false, priority: 'ignorar' };
-  } catch(e) {
-    return { needsAction: false, priority: 'ignorar' };
-  }
+  const content = res.choices[0].message.content.trim();
+  const match = content.match(/\{[\s\S]*\}/);
+  return match ? JSON.parse(match[0]) : { needsAction: false, sinResponder: false, priority: 'ignorar' };
 }
 
 function saveTask(contact, msgs, analysis) {
-  const meeting = analysis.meeting?.date || analysis.meeting?.time ? analysis.meeting : null;
+  if (!analysis.needsAction || analysis.priority === 'ignorar') return;
+  const meeting = (analysis.meeting?.date || analysis.meeting?.time) ? analysis.meeting : null;
   const type = analysis.type || 'pendiente';
   const lastMsg = msgs[msgs.length-1]?.text || '';
+  const keyMsg = (analysis.keyMessage || lastMsg).slice(0, 150);
 
-  // Múltiples tareas por contacto para pendiente, una por contacto para mio
   if (type === 'mio') {
     const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='mio' LIMIT 1").get(contact);
     if (existing) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,
-        category=?,meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(lastMsg.slice(0,80),(analysis.keyMessage||lastMsg).slice(0,150),
-          analysis.task,analysis.priority||'hoy',analysis.urgent?1:0,analysis.category||'personal',
+      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
+        meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .run(lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
+          analysis.urgent?1:0,analysis.category||'personal',
           meeting?.date||null,meeting?.time||null,meeting?.location||null,existing.id);
       return;
     }
@@ -193,11 +178,25 @@ function saveTask(contact, msgs, analysis) {
 
   db.prepare(`INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,type,from_me,meeting_date,meeting_time,meeting_location)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(contact,lastMsg.slice(0,80),(analysis.keyMessage||lastMsg).slice(0,150),
-      analysis.task,analysis.priority||'hoy',analysis.urgent?1:0,analysis.category||'personal',
-      type,type==='mio'?1:0,meeting?.date||null,meeting?.time||null,meeting?.location||null);
+    .run(contact,lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
+      analysis.urgent?1:0,analysis.category||'personal',type,type==='mio'?1:0,
+      meeting?.date||null,meeting?.time||null,meeting?.location||null);
 
-  console.log('[' + type.toUpperCase() + '][' + (analysis.priority||'hoy') + '][' + (analysis.category||'?') + '] ' + contact + ': ' + analysis.task);
+  console.log('['+type.toUpperCase()+']['+( analysis.priority||'hoy')+']['+( analysis.category||'?')+'] '+contact+': '+analysis.task);
+}
+
+function saveSinResponder(contact, msgs, analysis) {
+  const lastMsg = msgs[msgs.length-1]?.text || '';
+  const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='sin_responder' LIMIT 1").get(contact);
+  if (!existing) {
+    db.prepare(`INSERT INTO tasks (contact,preview,key_message,task,priority,category,type)
+      VALUES (?,?,?,?,?,?,?)`)
+      .run(contact,lastMsg.slice(0,80),(analysis.keyMessage||lastMsg).slice(0,150),
+        'Responder a '+contact,
+        analysis.priority==='ignorar'?'hoy':analysis.priority||'hoy',
+        analysis.category||'personal','sin_responder');
+    console.log('[SIN_RESPONDER] '+contact);
+  }
 }
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
@@ -219,38 +218,35 @@ app.post('/webhook', async (req, res) => {
     if (!convBuffer[contact]) convBuffer[contact] = { msgs: [], timer: null };
     convBuffer[contact].msgs.push({ text, fromMe });
 
-    // Limpiar conversaciones viejas (> 5 minutos sin actividad)
-    if (convBuffer[contact].timer) clearTimeout(convBuffer[contact].timer);
-
-    // Determinar si hay algo que capturar
-    const shouldCapture = (!fromMe && hasCapture(text, CAPTURE_RECEIVED))
-      || (fromMe && hasCapture(text, CAPTURE_MY))
-      || hasEventAgreed(convBuffer[contact].msgs);
-
-    if (!shouldCapture) {
-      // Resetear buffer después de 5 minutos de silencio si no hay nada relevante
-      convBuffer[contact].timer = setTimeout(() => { delete convBuffer[contact]; }, 300000);
-      return;
+    // Si Brandon responde → limpiar sin_responder
+    if (fromMe) {
+      db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE contact=? AND type='sin_responder' AND status='pending'").run(contact);
     }
 
-    // Esperar 15 segundos para acumular más mensajes de la conversación
-    const delay = hasEventAgreed(convBuffer[contact].msgs) ? 5000 : 15000;
+    if (convBuffer[contact].timer) clearTimeout(convBuffer[contact].timer);
 
-    convBuffer[contact].timer = setTimeout(async () => {
+    // Esperar 20s de silencio, luego encolar el análisis
+    convBuffer[contact].timer = setTimeout(() => {
       const msgs = [...convBuffer[contact].msgs];
       delete convBuffer[contact];
 
-      const analysis = await analyzeConversation(contact, msgs);
+      // Agregar a la cola de procesamiento — no satura Groq
+      enqueue(async () => {
+        try {
+          const analysis = await analyzeConversation(contact, msgs);
 
-      if (!analysis.needsAction || analysis.priority === 'ignorar') return;
+          if (analysis.needsAction && analysis.priority !== 'ignorar') {
+            saveTask(contact, msgs, analysis);
+          }
+          if (analysis.sinResponder) {
+            saveSinResponder(contact, msgs, analysis);
+          }
+        } catch(e) {
+          console.error('Analysis error for ' + contact + ':', e.message);
+        }
+      });
 
-      saveTask(contact, msgs, analysis);
-
-      // Si Brandon respondió, limpiar sin_responder
-      if (fromMe) {
-        db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE contact=? AND type='sin_responder' AND status='pending'").run(contact);
-      }
-    }, delay);
+    }, 20000);
 
   } catch(e) { console.error('Webhook error:', e.message); }
 });
@@ -290,7 +286,7 @@ app.patch('/tasks/:id/keep', (req, res) => {
 
 app.get('/health', (req, res) => {
   const count = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
-  res.json({ status:'ok', pendingTasks:count.n });
+  res.json({ status:'ok', pendingTasks:count.n, queueLength:queue.length });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v4.2 en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.1 en puerto', process.env.PORT || 3001));
