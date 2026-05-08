@@ -12,7 +12,7 @@
 :root{
   --bg:#f5f7fa;--card:#fff;--card2:#f8f9fb;
   --border:#e8eaed;--border2:#d1d5db;
-  --text:#111827;--text2:#374151;--muted:#6b7280;--muted2:#9ca3af;
+  --text:#111827;--muted:#6b7280;--muted2:#9ca3af;
   --green:#16a34a;--green-bg:#f0fdf4;--green-b:#bbf7d0;
   --red:#dc2626;--red-bg:#fef2f2;--red-b:#fecaca;
   --amber:#d97706;--amber-bg:#fffbeb;--amber-b:#fde68a;
@@ -21,12 +21,10 @@
   --font:'Inter',sans-serif;--mono:'DM Mono',monospace;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
-
-/* FULL SCREEN - sin max-width */
-.app{width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.app{width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* HEADER */
-.hdr{padding:env(safe-area-inset-top,16px) 20px 0;padding-top:max(env(safe-area-inset-top),16px);flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
+.hdr{padding:max(env(safe-area-inset-top),16px) 20px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
 .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
 .logo{font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
 .logo span{color:var(--green)}
@@ -35,51 +33,50 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .dot.off{background:var(--red);animation:none}
 @keyframes breathe{0%,100%{opacity:1}50%{opacity:0.6}}
 
-/* PRIORITY GRID */
+/* PRIORITY TABS */
 .prio-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
-.pc{padding:14px 8px;text-align:center;cursor:pointer;transition:all 0.15s;border-right:1px solid var(--border);position:relative}
+.pc{padding:12px 8px;text-align:center;cursor:pointer;transition:all 0.15s;border-right:1px solid var(--border);position:relative}
 .pc:last-child{border-right:none}
-.pc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;transition:all 0.15s}
+.pc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;transition:background 0.15s}
 .pc.active.p-ahora::after{background:var(--red)}
 .pc.active.p-hoy::after{background:var(--amber)}
 .pc.active.p-semana::after{background:var(--blue)}
 .pc.active.p-all::after{background:var(--green)}
+.pc.active .pn{color:var(--text)}
 .pc.active.p-ahora .pn{color:var(--red)}
 .pc.active.p-hoy .pn{color:var(--amber)}
 .pc.active.p-semana .pn{color:var(--blue)}
 .pc.active.p-all .pn{color:var(--green)}
-.pn{font-size:24px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--muted2)}
-.pl{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-top:3px}
+.pn{font-size:22px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--muted2)}
+.pl{font-size:9px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-top:3px}
 
 /* TOOLBAR */
 .toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
 .pills{display:flex;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none}
 .pills::-webkit-scrollbar{display:none}
-.pill{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;border-radius:20px;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
+.pill{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:20px;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
 .pill.active{background:var(--text);border-color:var(--text);color:white}
 .pill.work.active{background:var(--blue);border-color:var(--blue);color:white}
 .pill.pers.active{background:var(--green);border-color:var(--green);color:white}
 .pill.meet.active{background:var(--purple);border-color:var(--purple);color:white}
-.btn-refresh{flex-shrink:0;padding:7px 14px;background:var(--green);border:none;border-radius:10px;color:white;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s}
-.btn-refresh:active{opacity:0.85;transform:scale(0.97)}
+.btn-scan-hist{flex-shrink:0;padding:7px 12px;background:var(--purple-bg);border:1px solid #ddd6fe;border-radius:10px;color:var(--purple);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.2s}
+.btn-refresh{flex-shrink:0;padding:7px 12px;background:var(--green);border:none;border-radius:10px;color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.2s}
+.btn-refresh:active,.btn-scan-hist:active{opacity:0.85;transform:scale(0.97)}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* CONTENT */
 .content{flex:1;overflow-y:auto;padding:12px 16px 32px;background:var(--bg)}
-
-/* SECTION */
 .sec{display:flex;align-items:center;gap:8px;padding:8px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
 .sec::after{content:'';flex:1;height:1px;background:var(--border)}
 
-/* CARDS */
+/* TASK CARDS */
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;overflow:hidden;cursor:pointer;animation:si 0.2s ease forwards;opacity:0;transform:translateY(4px);box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 @keyframes si{to{opacity:1;transform:translateY(0)}}
 .card.c-ahora{border-left:3px solid var(--red)}
 .card.c-hoy{border-left:3px solid var(--amber)}
 .card.c-semana{border-left:3px solid var(--blue)}
 .card.c-personal{border-left:3px solid var(--green)}
-
 .card-top{display:flex;align-items:flex-start;gap:12px;padding:13px 14px}
 .av{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;font-family:var(--mono);position:relative}
 .av-ahora{background:var(--red-bg);color:var(--red)}
@@ -87,11 +84,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .av-trabajo{background:var(--blue-bg);color:var(--blue)}
 .av-personal{background:var(--green-bg);color:var(--green)}
 .av-pin{position:absolute;bottom:-3px;right:-3px;width:15px;height:15px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:8px}
-.pin-red{background:var(--red)}
-.pin-blue{background:var(--blue)}
-.pin-green{background:var(--green)}
-.pin-amber{background:var(--amber)}
-
+.pin-red{background:var(--red)}.pin-blue{background:var(--blue)}.pin-green{background:var(--green)}.pin-amber{background:var(--amber)}
 .cb{flex:1;min-width:0}
 .ct{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
 .cn{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
@@ -104,66 +97,74 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tp-personal{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
 .tp-trabajo{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
 .meeting-pill{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:4px 10px;background:var(--purple-bg);border:1px solid #ddd6fe;border-radius:8px;font-family:var(--mono);font-size:10px;color:var(--purple)}
-
-/* DETAIL */
 .card-detail{border-top:1px solid var(--border);padding:13px 14px;background:var(--card2);display:none}
-.card-detail.open{display:block;animation:expandIn 0.15s ease}
-@keyframes expandIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+.card-detail.open{display:block}
 .dl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px}
 .dtask{font-size:14px;font-weight:600;line-height:1.5;color:var(--text);margin-bottom:12px;padding:10px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border)}
 .dactions{display:flex;gap:8px}
-.btn-resolve{flex:1;padding:11px;background:var(--green);border:none;color:white;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer}
-.btn-snooze{padding:11px 14px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:10px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer}
-.btn-del{padding:11px 14px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:10px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer}
+.btn-resolve{flex:1;padding:11px;background:var(--green);border:none;color:white;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-snooze{padding:11px 14px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-del{padding:11px 14px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
 .card.dismissing{animation:dismissOut 0.3s ease forwards}
 @keyframes dismissOut{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
 
-/* EMPTY */
-.empty{text-align:center;padding:60px 20px}
-.empty-icon{font-size:48px;margin-bottom:12px}
+/* HISTORY SCANNER PANEL */
+.panel{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;display:flex;flex-direction:column;justify-content:flex-end}
+.panel-box{background:var(--card);border-radius:24px 24px 0 0;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.panel-hdr{padding:20px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-title{font-size:17px;font-weight:800;color:var(--text)}
+.panel-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.panel-close{position:absolute;top:20px;right:20px;width:30px;height:30px;background:var(--bg);border:none;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.panel-body{flex:1;overflow-y:auto;padding:12px 16px 24px}
+.panel-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;background:var(--card)}
+.btn-analyze{width:100%;padding:13px;background:var(--purple);border:none;border-radius:12px;color:white;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.btn-analyze:disabled{opacity:0.5;cursor:not-allowed}
+
+/* CHAT ITEMS en el panel */
+.chat-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);cursor:pointer;transition:all 0.15s}
+.chat-item.selected{background:var(--purple-bg);border-color:#ddd6fe}
+.chat-item.selected .chat-check{background:var(--purple);border-color:var(--purple);color:white}
+.chat-item.analyzed-saved{background:var(--green-bg);border-color:var(--green-b)}
+.chat-item.analyzed-skip{opacity:0.5}
+.chat-av{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;font-family:var(--mono);background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+.chat-av.group{background:var(--amber-bg);color:var(--amber)}
+.chat-info{flex:1;min-width:0}
+.chat-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.chat-msg{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.15s}
+.chat-result{font-size:10px;font-family:var(--mono);flex-shrink:0}
+.chat-result.saved{color:var(--green)}
+.chat-result.skip{color:var(--muted2)}
+.progress-bar{height:4px;background:var(--border);border-radius:4px;margin:10px 0;overflow:hidden}
+.progress-fill{height:100%;background:var(--purple);border-radius:4px;transition:width 0.3s}
+
+/* EMPTY / LOADING */
+.empty{text-align:center;padding:50px 20px}
+.empty-icon{font-size:44px;margin-bottom:12px}
 .empty-title{font-size:17px;font-weight:700;color:var(--text)}
 .empty-sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6}
-.loading{text-align:center;padding:60px 20px}
-.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+.loading{text-align:center;padding:50px 20px}
+.spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
 .lt{font-family:var(--mono);font-size:11px;color:var(--muted2)}
 .err{margin:12px 0;padding:14px;background:var(--red-bg);border:1px solid var(--red-b);border-radius:12px;font-size:13px;color:var(--red);text-align:center;line-height:1.5}
-
-/* TOAST */
-.toast{position:fixed;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:600;color:white;white-space:nowrap;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
+.toast{position:fixed;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:600;color:white;white-space:nowrap;z-index:300;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div class="app">
-  <!-- HEADER -->
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">Pendiente<span>AI</span></div>
       <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
     </div>
   </div>
-
-  <!-- PRIORITY TABS -->
   <div class="prio-grid">
-    <div class="pc p-ahora active" onclick="setFilter('ahora',this)">
-      <div class="pn" id="n-ahora">-</div>
-      <div class="pl">⚡ Ahora</div>
-    </div>
-    <div class="pc p-hoy" onclick="setFilter('hoy',this)">
-      <div class="pn" id="n-hoy">-</div>
-      <div class="pl">📅 Hoy</div>
-    </div>
-    <div class="pc p-semana" onclick="setFilter('semana',this)">
-      <div class="pn" id="n-semana">-</div>
-      <div class="pl">📆 Semana</div>
-    </div>
-    <div class="pc p-all" onclick="setFilter('all',this)">
-      <div class="pn" id="n-all">-</div>
-      <div class="pl">📋 Total</div>
-    </div>
+    <div class="pc p-ahora active" onclick="setFilter('ahora',this)"><div class="pn" id="n-ahora">-</div><div class="pl">⚡ Ahora</div></div>
+    <div class="pc p-hoy" onclick="setFilter('hoy',this)"><div class="pn" id="n-hoy">-</div><div class="pl">📅 Hoy</div></div>
+    <div class="pc p-semana" onclick="setFilter('semana',this)"><div class="pn" id="n-semana">-</div><div class="pl">📆 Semana</div></div>
+    <div class="pc p-all" onclick="setFilter('all',this)"><div class="pn" id="n-all">-</div><div class="pl">📋 Total</div></div>
   </div>
-
-  <!-- TOOLBAR -->
   <div class="toolbar">
     <div class="pills">
       <button class="pill active" onclick="setCat('all',this)">Todos</button>
@@ -171,55 +172,62 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button class="pill pers" onclick="setCat('personal',this)">👥 Personal</button>
       <button class="pill meet" onclick="setCat('meeting',this)">📍 Reuniones</button>
     </div>
+    <button class="btn-scan-hist" onclick="openHistoryPanel()">🕐 Historial</button>
     <button class="btn-refresh" id="scanBtn" onclick="loadTasks()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-      Actualizar
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
     </button>
   </div>
-
-  <!-- CONTENT -->
   <div class="content" id="content">
-    <div class="loading"><div class="spinner"></div><div class="lt">Cargando pendientes...</div></div>
+    <div class="loading"><div class="spinner"></div><div class="lt">Cargando...</div></div>
   </div>
 </div>
+
+<!-- HISTORY PANEL -->
+<div class="panel" id="panel" style="display:none" onclick="closePanel(event)">
+  <div class="panel-box" onclick="event.stopPropagation()">
+    <div class="panel-hdr" style="position:relative">
+      <div class="panel-title">🕐 Escaneo histórico</div>
+      <div class="panel-sub" id="panel-sub">Cargando chats recientes...</div>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>
+    <div class="panel-body" id="panel-body">
+      <div class="loading"><div class="spinner"></div><div class="lt">Leyendo chats...</div></div>
+    </div>
+    <div class="panel-footer">
+      <div class="progress-bar" id="progress-bar" style="display:none"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <button class="btn-analyze" id="btn-analyze" onclick="startAnalysis()" disabled>Seleccioná chats para analizar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><span id="toastText"></span></div>
 
 <script>
 const API='https://pendiente.transtidefreight.com';
 let tasks=[],expanded=null,filter='ahora',catFilter='all';
+let histChats=[],selectedChats=new Set(),analyzing=false;
 
 let tt;
-function toast(t){const el=document.getElementById('toast');document.getElementById('toastText').textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2500);}
+function toast(t){const el=document.getElementById('toast');document.getElementById('toastText').textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2800);}
 function setConn(ok){document.getElementById('dot').className='dot'+(ok?'':' off');document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';}
 
-function setFilter(f,btn){
-  filter=f;
-  document.querySelectorAll('.pc').forEach(c=>c.classList.remove('active'));
-  btn.classList.add('active');
-  renderTasks();
-}
-function setCat(c,btn){
-  catFilter=c;
-  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');
-  renderTasks();
-}
+function setFilter(f,btn){filter=f;document.querySelectorAll('.pc').forEach(c=>c.classList.remove('active'));btn.classList.add('active');renderTasks();}
+function setCat(c,btn){catFilter=c;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');renderTasks();}
 
 async function loadTasks(){
   const btn=document.getElementById('scanBtn');
-  btn.innerHTML='<svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
+  btn.innerHTML='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
   try{
     const r=await fetch(API+'/tasks');
     if(!r.ok) throw new Error('Error '+r.status);
     tasks=await r.json();
     setConn(true);renderStats();renderTasks();
-    toast('✅ '+tasks.length+' pendientes');
+    if(tasks.length) toast('✅ '+tasks.length+' pendientes');
   }catch(e){
     setConn(false);
     document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small style="opacity:0.7">'+e.message+'</small></div>';
-    toast('❌ Sin conexión');
   }finally{
-    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
+    btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
   }
 }
 
@@ -255,7 +263,7 @@ function renderTasks(){
   const el=document.getElementById('content');
   const filtered=getFiltered();
   if(!filtered.length){
-    const msgs={ahora:'Sin urgentes por ahora 🎉',hoy:'Estás al día 👍',semana:'Nada esta semana',all:'Bandeja vacía ✅'};
+    const msgs={ahora:'Sin urgentes 🎉',hoy:'Estás al día 👍',semana:'Nada esta semana',all:'Bandeja vacía ✅'};
     el.innerHTML='<div class="empty"><div class="empty-icon">'+(filter==='ahora'?'⚡':filter==='hoy'?'📅':filter==='semana'?'📆':'✅')+'</div><div class="empty-title">'+(msgs[filter]||msgs.all)+'</div><div class="empty-sub">Los mensajes nuevos aparecen aquí automáticamente</div></div>';
     return;
   }
@@ -298,7 +306,7 @@ function cardHTML(m,delay,cfg){
     '<div class="dl">'+catEmoji+' '+cat.toUpperCase()+' · Tarea detectada por IA</div>'+
     '<div class="dtask">'+m.task+'</div>'+
     '<div class="dactions">'+
-    '<button class="btn-resolve" onclick="resolve('+m.id+')">✅ Marcar resuelto</button>'+
+    '<button class="btn-resolve" onclick="resolve('+m.id+')">✅ Resuelto</button>'+
     '<button class="btn-snooze" onclick="snooze('+m.id+')">😴 Semana</button>'+
     '<button class="btn-del" onclick="resolve('+m.id+')">🗑</button>'+
     '</div></div></div>';
@@ -306,6 +314,138 @@ function cardHTML(m,delay,cfg){
 
 function toggle(id){expanded=expanded===id?null:id;renderTasks();setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
 function resolve(id){const c=document.getElementById('card-'+id);if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}}
+
+// ─── HISTORY PANEL ────────────────────────────────────────────────────────────
+async function openHistoryPanel(){
+  document.getElementById('panel').style.display='flex';
+  document.body.style.overflow='hidden';
+  selectedChats.clear();
+  histChats=[];
+  renderChatList([]);
+  document.getElementById('panel-sub').textContent='Cargando chats de los últimos 15 días...';
+  document.getElementById('btn-analyze').disabled=true;
+  document.getElementById('btn-analyze').textContent='Seleccioná chats para analizar';
+  document.getElementById('progress-bar').style.display='none';
+
+  try{
+    const r=await fetch(API+'/history-scan?days=15');
+    const data=await r.json();
+    if(data.error) throw new Error(data.error);
+    histChats=data.chats;
+    document.getElementById('panel-sub').textContent=data.total+' chats con actividad reciente — seleccioná los que querés analizar';
+    renderChatList(histChats);
+  }catch(e){
+    document.getElementById('panel-body').innerHTML='<div class="err">No se pudo cargar el historial<br><small>'+e.message+'</small></div>';
+  }
+}
+
+function closePanel(e){
+  if(e && e.target!==document.getElementById('panel')) return;
+  if(analyzing) return;
+  document.getElementById('panel').style.display='none';
+  document.body.style.overflow='';
+}
+
+function renderChatList(chats){
+  if(!chats.length){
+    document.getElementById('panel-body').innerHTML='<div class="empty"><div class="empty-icon">💬</div><div class="empty-title">Sin chats recientes</div></div>';
+    return;
+  }
+  // Separar personales y grupos
+  const personal=chats.filter(c=>!c.isGroup);
+  const groups=chats.filter(c=>c.isGroup);
+
+  let html='';
+  if(personal.length){
+    html+='<div class="sec">👤 Contactos · '+personal.length+'</div>';
+    personal.forEach(c=>{html+=chatItemHTML(c);});
+  }
+  if(groups.length){
+    html+='<div class="sec" style="margin-top:8px">👥 Grupos · '+groups.length+'</div>';
+    groups.forEach(c=>{html+=chatItemHTML(c);});
+  }
+  document.getElementById('panel-body').innerHTML=html;
+}
+
+function chatItemHTML(c){
+  const init=ini(c.name);
+  const isGroup=c.isGroup;
+  const sel=selectedChats.has(c.id);
+  return '<div class="chat-item'+(sel?' selected':'')+(c._result?' analyzed-'+(c._result==='saved'?'saved':'skip'):'')+ '" id="chat-'+c.id.replace(/[^a-z0-9]/gi,'_')+'" onclick="toggleChat(''+c.id+'')">'+
+    '<div class="chat-av'+(isGroup?' group':'')+'">'+init+'</div>'+
+    '<div class="chat-info">'+
+    '<div class="chat-name">'+c.name+'</div>'+
+    (c.lastMessage?'<div class="chat-msg">'+c.lastMessage+'</div>':'<div class="chat-msg" style="color:var(--muted2);font-style:italic">Sin preview</div>')+
+    '</div>'+
+    (c._result?'<div class="chat-result '+(c._result==='saved'?'saved':'skip')+'">'+(c._result==='saved'?'✅ guardado':'— omitido')+'</div>':
+    '<div class="chat-check">'+(sel?'✓':'')+'</div>')+
+    '</div>';
+}
+
+function toggleChat(id){
+  if(analyzing) return;
+  const c=histChats.find(x=>x.id===id);
+  if(!c||c._result) return;
+  if(selectedChats.has(id)) selectedChats.delete(id);
+  else selectedChats.add(id);
+  const btn=document.getElementById('btn-analyze');
+  if(selectedChats.size>0){
+    btn.disabled=false;
+    btn.textContent='Analizar '+selectedChats.size+' chat'+(selectedChats.size>1?'s':'')+' con IA →';
+  } else {
+    btn.disabled=true;
+    btn.textContent='Seleccioná chats para analizar';
+  }
+  renderChatList(histChats);
+}
+
+async function startAnalysis(){
+  if(!selectedChats.size||analyzing) return;
+  analyzing=true;
+  const btn=document.getElementById('btn-analyze');
+  btn.disabled=true;
+  const progBar=document.getElementById('progress-bar');
+  const progFill=document.getElementById('progress-fill');
+  progBar.style.display='block';
+
+  const toAnalyze=[...selectedChats];
+  let done=0,saved=0;
+
+  for(const chatId of toAnalyze){
+    const chat=histChats.find(c=>c.id===chatId);
+    if(!chat) continue;
+    btn.textContent='Analizando: '+chat.name+' ('+done+'/'+toAnalyze.length+')';
+
+    try{
+      const r=await fetch(API+'/history-analyze',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chatId:chat.id,contactName:chat.name})
+      });
+      const result=await r.json();
+      chat._result=result.saved?'saved':'skip';
+      if(result.saved) saved++;
+    }catch(e){
+      chat._result='skip';
+    }
+
+    done++;
+    progFill.style.width=(done/toAnalyze.length*100)+'%';
+    renderChatList(histChats);
+
+    // Rate limiting: 1 por segundo para no saturar Groq
+    if(done<toAnalyze.length) await new Promise(r=>setTimeout(r,1200));
+  }
+
+  analyzing=false;
+  btn.textContent='✅ Análisis completado — '+saved+' tareas encontradas';
+  if(saved>0){
+    toast('🎉 '+saved+' tareas del historial importadas');
+    await loadTasks();
+  } else {
+    toast('No se encontraron pendientes en los chats seleccionados');
+  }
+}
 
 setInterval(loadTasks,60000);
 loadTasks();
