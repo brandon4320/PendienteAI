@@ -183,6 +183,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <script>
 const API='https://pendiente.transtidefreight.com';
+const TOKEN='pendiente2024secret';
+function apiFetch(url,opts={}){return fetch(url,{...opts,headers:{...opts.headers,'X-Api-Token':TOKEN}});}
 let data={pendiente:[],sin_responder:[],mio:[]};
 let expanded=null,filter='ahora',catFilter='all',bandeja='pendiente';
 
@@ -206,9 +208,9 @@ async function loadAll(){
   btn.innerHTML='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
   try{
     const [r1,r2,r3]=await Promise.all([
-      fetch(API+'/tasks?type=pendiente'),
-      fetch(API+'/tasks?type=sin_responder'),
-      fetch(API+'/tasks?type=mio'),
+      apiFetch(API+'/tasks?type=pendiente'),
+      apiFetch(API+'/tasks?type=sin_responder'),
+      apiFetch(API+'/tasks?type=mio'),
     ]);
     data.pendiente=await r1.json();
     data.sin_responder=await r2.json();
@@ -227,17 +229,17 @@ async function loadAll(){
 }
 
 async function delTask(id){
-  try{await fetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}
+  try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}
   for(const k of Object.keys(data)) data[k]=data[k].filter(t=>t.id!=id);
   updateBadges();renderStats();renderTasks();
 }
 async function snooze(id){
-  try{await fetch(API+'/tasks/'+id+'/snooze',{method:'PATCH'});}catch(e){}
+  try{await apiFetch(API+'/tasks/'+id+'/snooze',{method:'PATCH'});}catch(e){}
   for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==id);if(t){t.priority='semana';t.urgent=false;}}
   renderStats();renderTasks();toast('😴 Postergado para la semana');
 }
 async function keepTask(id){
-  try{await fetch(API+'/tasks/'+id+'/keep',{method:'PATCH'});}catch(e){}
+  try{await apiFetch(API+'/tasks/'+id+'/keep',{method:'PATCH'});}catch(e){}
   const t=data.sin_responder.find(x=>x.id==id);
   if(t){t.type='pendiente';data.pendiente.push(t);data.sin_responder=data.sin_responder.filter(x=>x.id!=id);}
   updateBadges();renderStats();renderTasks();toast('📥 Movido a Pendientes');
