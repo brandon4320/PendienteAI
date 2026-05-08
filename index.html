@@ -18,35 +18,37 @@
   --amber:#d97706;--amber-bg:#fffbeb;--amber-b:#fde68a;
   --blue:#2563eb;--blue-bg:#eff6ff;--blue-b:#bfdbfe;
   --purple:#7c3aed;--purple-bg:#f5f3ff;--purple-b:#ddd6fe;
-  --slate:#64748b;--slate-bg:#f8fafc;
+  --orange:#ea580c;--orange-bg:#fff7ed;--orange-b:#fed7aa;
   --font:'Inter',sans-serif;--mono:'DM Mono',monospace;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 .app{width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
-/* HEADER */
-.hdr{padding:max(env(safe-area-inset-top),16px) 20px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
-.hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px}
-.logo{font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
+.hdr{padding:max(env(safe-area-inset-top),14px) 16px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px}
+.logo{font-size:19px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
 .logo span{color:var(--green)}
-.badge{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted)}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:breathe 2s ease-in-out infinite}
+.badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:breathe 2s ease-in-out infinite}
 .dot.off{background:var(--red);animation:none}
 @keyframes breathe{0%,100%{opacity:1}50%{opacity:0.6}}
 
-/* BANDEJA TABS */
-.bandeja-tabs{display:flex;gap:0;border-bottom:1px solid var(--border)}
-.bt{flex:1;padding:10px 8px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.15s;background:transparent;border-top:none;border-left:none;border-right:none}
+/* BANDEJAS — 3 tabs */
+.btabs{display:flex}
+.bt{flex:1;padding:9px 4px;text-align:center;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;background:transparent;border-top:none;border-left:none;border-right:none;transition:all 0.15s}
 .bt.active{color:var(--text);border-bottom-color:var(--green)}
 .bt.active.sin{border-bottom-color:var(--purple)}
-.bt-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:700;margin-left:5px;background:var(--red);color:white}
-.bt-badge.purple{background:var(--purple)}
+.bt.active.mio{border-bottom-color:var(--orange)}
+.bcount{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;border-radius:8px;font-size:9px;font-weight:700;margin-left:3px;padding:0 3px}
+.bcount.red{background:var(--red);color:white}
+.bcount.purple{background:var(--purple);color:white}
+.bcount.orange{background:var(--orange);color:white}
 
-/* PRIORITY TABS */
+/* PRIORITY GRID */
 .prio-grid{display:grid;grid-template-columns:repeat(4,1fr);flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
-.pc{padding:10px 8px;text-align:center;cursor:pointer;border-right:1px solid var(--border);position:relative}
+.pc{padding:10px 6px;text-align:center;cursor:pointer;border-right:1px solid var(--border);position:relative}
 .pc:last-child{border-right:none}
-.pc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;transition:background 0.15s}
+.pc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent}
 .pc.active.p-ahora::after{background:var(--red)}
 .pc.active.p-hoy::after{background:var(--amber)}
 .pc.active.p-semana::after{background:var(--blue)}
@@ -56,105 +58,104 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .pc.active.p-semana .pn{color:var(--blue)}
 .pc.active.p-all .pn{color:var(--green)}
 .pn{font-size:20px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--muted2)}
-.pl{font-size:9px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-top:3px}
+.pl{font-size:8px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-top:2px}
 
 /* TOOLBAR */
-.toolbar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
-.pills{display:flex;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none}
+.toolbar{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.pills{display:flex;gap:5px;flex:1;overflow-x:auto;scrollbar-width:none}
 .pills::-webkit-scrollbar{display:none}
-.pill{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;border-radius:20px;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
+.pill{padding:4px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;border-radius:20px;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
 .pill.active{background:var(--text);border-color:var(--text);color:white}
 .pill.work.active{background:var(--blue);border-color:var(--blue);color:white}
 .pill.pers.active{background:var(--green);border-color:var(--green);color:white}
-.btn-refresh{flex-shrink:0;padding:7px 12px;background:var(--green);border:none;border-radius:10px;color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px}
-.btn-refresh:active{opacity:0.85}
+.btn-refresh{flex-shrink:0;padding:6px 11px;background:var(--green);border:none;border-radius:9px;color:white;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* CONTENT */
-.content{flex:1;overflow-y:auto;padding:10px 16px 32px;background:var(--bg)}
-.sec{display:flex;align-items:center;gap:8px;padding:8px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
-.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.content{flex:1;overflow-y:auto;padding:10px 14px 32px;background:var(--bg)}
 
-/* CARDS — PENDIENTE */
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;overflow:hidden;cursor:pointer;animation:si 0.2s ease forwards;opacity:0;transform:translateY(4px);box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+/* CONTACT GROUP */
+.contact-group{margin-bottom:12px}
+.cg-header{display:flex;align-items:center;gap:8px;padding:6px 0 4px}
+.cg-av{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.cg-av-trabajo{background:var(--blue-bg);color:var(--blue)}
+.cg-av-personal{background:var(--green-bg);color:var(--green)}
+.cg-av-mio{background:var(--orange-bg);color:var(--orange)}
+.cg-name{font-size:13px;font-weight:700;color:var(--text)}
+.cg-cat{font-size:10px;color:var(--muted);margin-left:2px}
+.cg-count{font-family:var(--mono);font-size:10px;color:var(--muted2);margin-left:auto}
+
+/* TASK CARDS dentro del grupo */
+.task-card{background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:5px;overflow:hidden;cursor:pointer;animation:si 0.2s ease forwards;opacity:0;transform:translateY(3px);box-shadow:0 1px 2px rgba(0,0,0,0.04)}
 @keyframes si{to{opacity:1;transform:translateY(0)}}
-.card.c-ahora{border-left:3px solid var(--red)}
-.card.c-hoy{border-left:3px solid var(--amber)}
-.card.c-semana{border-left:3px solid var(--blue)}
-.card.c-personal{border-left:3px solid var(--green)}
-/* CARDS — SIN RESPONDER */
-.card.sin-card{border-left:3px solid var(--purple);background:var(--card)}
+.task-card.c-ahora{border-left:3px solid var(--red)}
+.task-card.c-hoy{border-left:3px solid var(--amber)}
+.task-card.c-semana{border-left:3px solid var(--blue)}
+.task-card.c-mio{border-left:3px solid var(--orange)}
+.task-card.c-sin{border-left:3px solid var(--purple)}
 
-.card-top{display:flex;align-items:flex-start;gap:12px;padding:13px 14px}
-.av{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;font-family:var(--mono);position:relative}
-.av-ahora{background:var(--red-bg);color:var(--red)}
-.av-hoy{background:var(--amber-bg);color:var(--amber)}
-.av-trabajo{background:var(--blue-bg);color:var(--blue)}
-.av-personal{background:var(--green-bg);color:var(--green)}
-.av-sin{background:var(--purple-bg);color:var(--purple)}
-.av-pin{position:absolute;bottom:-3px;right:-3px;width:15px;height:15px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:8px}
-.pin-red{background:var(--red)}.pin-blue{background:var(--blue)}.pin-green{background:var(--green)}.pin-amber{background:var(--amber)}.pin-purple{background:var(--purple)}
+.tc-main{display:flex;align-items:center;gap:10px;padding:11px 13px}
+.tc-body{flex:1;min-width:0}
+.tc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.tc-prev{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-time{font-family:var(--mono);font-size:9px;color:var(--muted2);flex-shrink:0;margin-left:6px}
+.tc-task{display:inline-flex;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600;margin-top:4px}
+.tt-ahora{background:var(--red-bg);color:var(--red);border:1px solid var(--red-b)}
+.tt-hoy{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)}
+.tt-semana{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
+.tt-trabajo{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
+.tt-personal{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
+.tt-mio{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-b)}
+.tt-sin{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
+.meeting-badge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:3px 8px;background:var(--purple-bg);border:1px solid var(--purple-b);border-radius:7px;font-family:var(--mono);font-size:9px;color:var(--purple)}
 
-.cb{flex:1;min-width:0}
-.ct{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
-.cn{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.ctime{font-family:var(--mono);font-size:10px;color:var(--muted2);flex-shrink:0;margin-left:8px}
-.cprev{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;margin-bottom:6px}
-.task-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600}
-.tp-ahora{background:var(--red-bg);color:var(--red);border:1px solid var(--red-b)}
-.tp-hoy{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)}
-.tp-semana{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
-.tp-personal{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
-.tp-trabajo{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
-.tp-sin{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
-.meeting-pill{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:4px 10px;background:var(--purple-bg);border:1px solid var(--purple-b);border-radius:8px;font-family:var(--mono);font-size:10px;color:var(--purple)}
+.tc-detail{border-top:1px solid var(--border);padding:11px 13px;background:var(--card2);display:none}
+.tc-detail.open{display:block}
+.dl{font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.dtask{font-size:13px;font-weight:600;line-height:1.5;color:var(--text);margin-bottom:10px;padding:9px 11px;background:var(--card);border-radius:9px;border:1px solid var(--border)}
+.dactions{display:flex;gap:6px}
+.btn-ok{flex:1;padding:10px;background:var(--green);border:none;color:white;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer}
+.btn-keep{flex:1;padding:10px;background:var(--amber-bg);border:1px solid var(--amber-b);color:var(--amber);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer}
+.btn-zz{padding:10px 12px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:9px;font-size:12px;cursor:pointer}
+.btn-x{padding:10px 12px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:9px;font-size:12px;cursor:pointer}
+.task-card.dismissing{animation:out 0.3s ease forwards}
+@keyframes out{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
 
-.card-detail{border-top:1px solid var(--border);padding:13px 14px;background:var(--card2);display:none}
-.card-detail.open{display:block}
-.dl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px}
-.dtask{font-size:14px;font-weight:600;line-height:1.5;color:var(--text);margin-bottom:12px;padding:10px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border)}
-.dactions{display:flex;gap:7px}
-.btn-resolve{flex:1;padding:11px;background:var(--green);border:none;color:white;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
-.btn-keep{flex:1;padding:11px;background:var(--amber-bg);border:1px solid var(--amber-b);color:var(--amber);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
-.btn-snooze{padding:11px 12px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
-.btn-del{padding:11px 12px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
-
-.card.dismissing{animation:dismissOut 0.3s ease forwards}
-@keyframes dismissOut{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
-
-.empty{text-align:center;padding:50px 20px}
-.empty-icon{font-size:44px;margin-bottom:12px}
-.empty-title{font-size:17px;font-weight:700;color:var(--text)}
-.empty-sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6}
-.loading{text-align:center;padding:50px 20px}
-.spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
-.lt{font-family:var(--mono);font-size:11px;color:var(--muted2)}
-.err{margin:12px 0;padding:14px;background:var(--red-bg);border:1px solid var(--red-b);border-radius:12px;font-size:13px;color:var(--red);text-align:center;line-height:1.5}
-.toast{position:fixed;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:600;color:white;white-space:nowrap;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
+.sec{display:flex;align-items:center;gap:8px;padding:8px 0 5px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.empty{text-align:center;padding:50px 16px}
+.empty-icon{font-size:40px;margin-bottom:10px}
+.empty-title{font-size:16px;font-weight:700;color:var(--text)}
+.empty-sub{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.6}
+.loading{text-align:center;padding:50px 16px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
+.lt{font-family:var(--mono);font-size:10px;color:var(--muted2)}
+.err{margin:10px 0;padding:12px;background:var(--red-bg);border:1px solid var(--red-b);border-radius:11px;font-size:12px;color:var(--red);text-align:center;line-height:1.5}
+.toast{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:11px;padding:9px 16px;font-size:12px;font-weight:600;color:white;white-space:nowrap;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div class="app">
-  <!-- HEADER -->
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">Pendiente<span>AI</span></div>
       <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
     </div>
-    <!-- BANDEJAS -->
-    <div class="bandeja-tabs">
+    <div class="btabs">
       <button class="bt active" onclick="setBandeja('pendiente',this)">
-        📥 Pendientes <span class="bt-badge" id="badge-pendiente">0</span>
+        📥 Pendientes <span class="bcount red" id="bc-p">0</span>
       </button>
       <button class="bt sin" onclick="setBandeja('sin_responder',this)">
-        👁️ Sin responder <span class="bt-badge purple" id="badge-sin">0</span>
+        👁️ Sin resp. <span class="bcount purple" id="bc-s">0</span>
+      </button>
+      <button class="bt mio" onclick="setBandeja('mio',this)">
+        ✅ Mis comp. <span class="bcount orange" id="bc-m">0</span>
       </button>
     </div>
   </div>
 
-  <!-- PRIORITY GRID -->
   <div class="prio-grid" id="prio-grid">
     <div class="pc p-ahora active" onclick="setFilter('ahora',this)"><div class="pn" id="n-ahora">-</div><div class="pl">⚡ Ahora</div></div>
     <div class="pc p-hoy" onclick="setFilter('hoy',this)"><div class="pn" id="n-hoy">-</div><div class="pl">📅 Hoy</div></div>
@@ -162,7 +163,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="pc p-all" onclick="setFilter('all',this)"><div class="pn" id="n-all">-</div><div class="pl">📋 Total</div></div>
   </div>
 
-  <!-- TOOLBAR -->
   <div class="toolbar">
     <div class="pills">
       <button class="pill active" onclick="setCat('all',this)">Todos</button>
@@ -170,7 +170,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button class="pill pers" onclick="setCat('personal',this)">👥 Personal</button>
     </div>
     <button class="btn-refresh" id="scanBtn" onclick="loadAll()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
       Actualizar
     </button>
   </div>
@@ -183,7 +183,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <script>
 const API='https://pendiente.transtidefreight.com';
-let tasksPendiente=[],tasksSin=[],expanded=null,filter='ahora',catFilter='all',bandeja='pendiente';
+let data={pendiente:[],sin_responder:[],mio:[]};
+let expanded=null,filter='ahora',catFilter='all',bandeja='pendiente';
 
 let tt;
 function toast(t){const el=document.getElementById('toast');document.getElementById('toastText').textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2500);}
@@ -193,185 +194,181 @@ function setBandeja(b,btn){
   bandeja=b;expanded=null;
   document.querySelectorAll('.bt').forEach(x=>x.classList.remove('active'));
   btn.classList.add('active');
-  // Ocultar/mostrar prioridades en sin_responder
-  document.getElementById('prio-grid').style.display=b==='sin_responder'?'none':'grid';
+  const showPrio=b==='pendiente';
+  document.getElementById('prio-grid').style.display=showPrio?'grid':'none';
   renderTasks();
 }
-
 function setFilter(f,btn){filter=f;document.querySelectorAll('.pc').forEach(c=>c.classList.remove('active'));btn.classList.add('active');renderTasks();}
 function setCat(c,btn){catFilter=c;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');renderTasks();}
 
 async function loadAll(){
   const btn=document.getElementById('scanBtn');
-  btn.innerHTML='<svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
+  btn.innerHTML='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
   try{
-    const [r1,r2]=await Promise.all([
+    const [r1,r2,r3]=await Promise.all([
       fetch(API+'/tasks?type=pendiente'),
-      fetch(API+'/tasks?type=sin_responder')
+      fetch(API+'/tasks?type=sin_responder'),
+      fetch(API+'/tasks?type=mio'),
     ]);
-    tasksPendiente=await r1.json();
-    tasksSin=await r2.json();
+    data.pendiente=await r1.json();
+    data.sin_responder=await r2.json();
+    data.mio=await r3.json();
     setConn(true);
-    document.getElementById('badge-pendiente').textContent=tasksPendiente.length;
-    document.getElementById('badge-sin').textContent=tasksSin.length;
+    document.getElementById('bc-p').textContent=data.pendiente.length;
+    document.getElementById('bc-s').textContent=data.sin_responder.length;
+    document.getElementById('bc-m').textContent=data.mio.length;
     renderStats();renderTasks();
-    if(tasksPendiente.length+tasksSin.length>0) toast('✅ '+(tasksPendiente.length+tasksSin.length)+' total');
   }catch(e){
     setConn(false);
     document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+e.message+'</small></div>';
   }finally{
-    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
+    btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
   }
 }
 
 async function delTask(id){
   try{await fetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}
-  tasksPendiente=tasksPendiente.filter(t=>t.id!=id);
-  tasksSin=tasksSin.filter(t=>t.id!=id);
-  document.getElementById('badge-pendiente').textContent=tasksPendiente.length;
-  document.getElementById('badge-sin').textContent=tasksSin.length;
-  renderStats();renderTasks();
+  for(const k of Object.keys(data)) data[k]=data[k].filter(t=>t.id!=id);
+  updateBadges();renderStats();renderTasks();
 }
-
-async function keepTask(id){
-  // Mover de sin_responder a pendiente
-  try{await fetch(API+'/tasks/'+id+'/keep',{method:'PATCH'});}catch(e){}
-  const t=tasksSin.find(x=>x.id==id);
-  if(t){t.type='pendiente';tasksPendiente.push(t);tasksSin=tasksSin.filter(x=>x.id!=id);}
-  document.getElementById('badge-pendiente').textContent=tasksPendiente.length;
-  document.getElementById('badge-sin').textContent=tasksSin.length;
-  renderStats();renderTasks();
-  toast('📥 Movido a Pendientes');
-}
-
 async function snooze(id){
   try{await fetch(API+'/tasks/'+id+'/snooze',{method:'PATCH'});}catch(e){}
-  const t=[...tasksPendiente,...tasksSin].find(x=>x.id==id);
-  if(t){t.priority='semana';t.urgent=false;}
+  for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==id);if(t){t.priority='semana';t.urgent=false;}}
   renderStats();renderTasks();toast('😴 Postergado para la semana');
+}
+async function keepTask(id){
+  try{await fetch(API+'/tasks/'+id+'/keep',{method:'PATCH'});}catch(e){}
+  const t=data.sin_responder.find(x=>x.id==id);
+  if(t){t.type='pendiente';data.pendiente.push(t);data.sin_responder=data.sin_responder.filter(x=>x.id!=id);}
+  updateBadges();renderStats();renderTasks();toast('📥 Movido a Pendientes');
+}
+
+function updateBadges(){
+  document.getElementById('bc-p').textContent=data.pendiente.length;
+  document.getElementById('bc-s').textContent=data.sin_responder.length;
+  document.getElementById('bc-m').textContent=data.mio.length;
 }
 
 function ini(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function hrs(h){if(h<1)return'ahora';if(h<24)return h+'h';return Math.floor(h/24)+'d';}
 
 function renderStats(){
-  const tasks=tasksPendiente;
+  const tasks=data.pendiente;
   document.getElementById('n-ahora').textContent=tasks.filter(t=>t.priority==='ahora').length;
   document.getElementById('n-hoy').textContent=tasks.filter(t=>t.priority==='hoy').length;
   document.getElementById('n-semana').textContent=tasks.filter(t=>t.priority==='semana').length;
   document.getElementById('n-all').textContent=tasks.length;
 }
 
-function getFilteredPendiente(){
-  let t=[...tasksPendiente];
-  if(filter!=='all') t=t.filter(x=>x.priority===filter);
-  if(catFilter==='trabajo') t=t.filter(x=>x.category==='trabajo');
-  else if(catFilter==='personal') t=t.filter(x=>x.category==='personal');
-  return t;
+function getFiltered(){
+  let tasks=data[bandeja]||[];
+  if(bandeja==='pendiente'&&filter!=='all') tasks=tasks.filter(t=>t.priority===filter);
+  if(catFilter==='trabajo') tasks=tasks.filter(t=>t.category==='trabajo');
+  else if(catFilter==='personal') tasks=tasks.filter(t=>t.category==='personal');
+  return tasks;
 }
 
-function getFilteredSin(){
-  let t=[...tasksSin];
-  if(catFilter==='trabajo') t=t.filter(x=>x.category==='trabajo');
-  else if(catFilter==='personal') t=t.filter(x=>x.category==='personal');
-  return t;
+// Agrupar por contacto
+function groupByContact(tasks){
+  const map={};
+  const order=[];
+  tasks.forEach(t=>{
+    if(!map[t.contact]){map[t.contact]=[];order.push(t.contact);}
+    map[t.contact].push(t);
+  });
+  return order.map(c=>({contact:c,tasks:map[c]}));
 }
-
-const PCONF={
-  ahora:{emoji:'⚡',label:'Acción inmediata',cardClass:'c-ahora',avClass:'av-ahora',tpClass:'tp-ahora',pinClass:'pin-red'},
-  hoy:{emoji:'📅',label:'Para hoy',cardClass:'c-hoy',avClass:'av-hoy',tpClass:'tp-hoy',pinClass:'pin-amber'},
-  semana:{emoji:'📆',label:'Esta semana',cardClass:'c-semana',avClass:'av-trabajo',tpClass:'tp-semana',pinClass:'pin-blue'},
-};
 
 function renderTasks(){
   const el=document.getElementById('content');
+  const filtered=getFiltered();
 
-  if(bandeja==='sin_responder'){
-    const filtered=getFilteredSin();
-    if(!filtered.length){
-      el.innerHTML='<div class="empty"><div class="empty-icon">👁️</div><div class="empty-title">Todo respondido 🎉</div><div class="empty-sub">No tenés mensajes sin responder</div></div>';
-      return;
-    }
-    let html='<div class="sec">👁️ Sin responder · '+filtered.length+'</div>';
-    filtered.forEach((m,i)=>{html+=sinCard(m,i*35);});
-    el.innerHTML=html;
-    return;
-  }
-
-  // PENDIENTE
-  const filtered=getFilteredPendiente();
   if(!filtered.length){
-    const msgs={ahora:'Sin urgentes 🎉',hoy:'Estás al día 👍',semana:'Nada esta semana',all:'Bandeja vacía ✅'};
-    el.innerHTML='<div class="empty"><div class="empty-icon">'+(filter==='ahora'?'⚡':filter==='hoy'?'📅':filter==='semana'?'📆':'✅')+'</div><div class="empty-title">'+(msgs[filter]||msgs.all)+'</div><div class="empty-sub">Los mensajes nuevos aparecen aquí automáticamente</div></div>';
+    const icons={pendiente:'📥',sin_responder:'👁️',mio:'✅'};
+    const msgs={pendiente:'Bandeja vacía ✅',sin_responder:'Todo respondido 🎉',mio:'Sin compromisos pendientes'};
+    el.innerHTML='<div class="empty"><div class="empty-icon">'+icons[bandeja]+'</div><div class="empty-title">'+msgs[bandeja]+'</div><div class="empty-sub">Los mensajes nuevos aparecen aquí automáticamente</div></div>';
     return;
   }
-  const groups={ahora:[],hoy:[],semana:[]};
-  filtered.forEach(t=>{const p=t.priority||'semana';if(groups[p])groups[p].push(t);else groups.semana.push(t);});
+
+  const groups=groupByContact(filtered);
   let html='';
-  ['ahora','hoy','semana'].forEach(p=>{
-    const items=groups[p];if(!items.length)return;
-    const cfg=PCONF[p];
-    html+='<div class="sec">'+cfg.emoji+' '+cfg.label+' <span style="opacity:0.5;margin-left:2px">'+items.length+'</span></div>';
-    items.forEach((m,i)=>{html+=pendCard(m,i*35,cfg);});
-  });
+
+  if(bandeja==='pendiente'){
+    // Separar por prioridad primero
+    const prioGroups={ahora:[],hoy:[],semana:[]};
+    filtered.forEach(t=>{const p=t.priority||'semana';if(prioGroups[p])prioGroups[p].push(t);else prioGroups.semana.push(t);});
+    const labels={ahora:'⚡ Acción inmediata',hoy:'📅 Para hoy',semana:'📆 Esta semana'};
+    ['ahora','hoy','semana'].forEach(p=>{
+      if(!prioGroups[p].length) return;
+      html+='<div class="sec">'+labels[p]+' <span style="opacity:0.5;margin-left:2px">'+prioGroups[p].length+'</span></div>';
+      const cgroups=groupByContact(prioGroups[p]);
+      cgroups.forEach((g,gi)=>{html+=contactGroupHTML(g,p,gi);});
+    });
+  } else {
+    groups.forEach((g,gi)=>{html+=contactGroupHTML(g,bandeja,gi);});
+  }
+
   el.innerHTML=html;
 }
 
-function pendCard(m,delay,cfg){
-  const isOpen=expanded===m.id;
-  const init=ini(m.contact);
-  const cat=m.category||'personal';
+function contactGroupHTML(g,prio,gi){
+  const cat=g.tasks[0]?.category||'personal';
   const isWork=cat==='trabajo';
-  const avClass=cfg?cfg.avClass:(isWork?'av-trabajo':'av-personal');
-  const pinClass=cfg?cfg.pinClass:(isWork?'pin-blue':'pin-green');
-  const tpClass=cfg?cfg.tpClass:(isWork?'tp-trabajo':'tp-personal');
-  const cardSide=cfg?cfg.cardClass:(isWork?'c-semana':'c-personal');
-  const catEmoji=isWork?'💼':'👥';
-  let meetBadge='';
-  if(m.meeting&&(m.meeting.time||m.meeting.date)){
-    meetBadge='<div class="meeting-pill">📍 '+[m.meeting.date,m.meeting.time,m.meeting.location].filter(Boolean).join(' · ')+'</div>';
-  }
-  return '<div class="card '+cardSide+'" id="card-'+m.id+'" onclick="toggle('+m.id+')" style="animation-delay:'+delay+'ms">'+
-    '<div class="card-top">'+
-    '<div class="av '+avClass+'">'+init+'<div class="av-pin '+pinClass+'">'+catEmoji+'</div></div>'+
-    '<div class="cb">'+
-    '<div class="ct"><span class="cn">'+m.contact+'</span><span class="ctime">'+hrs(m.hours||0)+'</span></div>'+
-    '<div class="cprev">'+m.preview+'</div>'+
-    '<div class="task-pill '+tpClass+'">'+m.task+'</div>'+
-    meetBadge+
-    '</div></div>'+
-    '<div class="card-detail '+(isOpen?'open':'')+'" id="detail-'+m.id+'" onclick="event.stopPropagation()">'+
-    '<div class="dl">'+catEmoji+' '+cat.toUpperCase()+' · Tarea detectada por IA</div>'+
-    '<div class="dtask">'+m.task+'</div>'+
-    '<div class="dactions">'+
-    '<button class="btn-resolve" onclick="resolve('+m.id+')">✅ Resuelto</button>'+
-    '<button class="btn-snooze" onclick="snooze('+m.id+')">😴</button>'+
-    '<button class="btn-del" onclick="resolve('+m.id+')">🗑</button>'+
-    '</div></div></div>';
+  const isMio=bandeja==='mio';
+  const isSin=bandeja==='sin_responder';
+  const avClass=isMio?'cg-av-mio':(isWork?'cg-av-trabajo':'cg-av-personal');
+  const catEmoji=isMio?'✍️':(isWork?'💼':'👥');
+  const init=ini(g.contact);
+
+  let html='<div class="contact-group">'+
+    '<div class="cg-header">'+
+    '<div class="cg-av '+avClass+'">'+init+'</div>'+
+    '<span class="cg-name">'+g.contact+'</span>'+
+    '<span class="cg-cat">'+catEmoji+'</span>'+
+    (g.tasks.length>1?'<span class="cg-count">'+g.tasks.length+' tareas</span>':'')+
+    '</div>';
+
+  g.tasks.forEach((t,i)=>{
+    html+=taskCardHTML(t,prio,(gi*10+i)*30,isMio,isSin);
+  });
+
+  html+='</div>';
+  return html;
 }
 
-function sinCard(m,delay){
-  const isOpen=expanded===m.id;
-  const init=ini(m.contact);
-  const cat=m.category||'personal';
-  const isWork=cat==='trabajo';
-  const catEmoji=isWork?'💼':'👥';
-  return '<div class="card sin-card" id="card-'+m.id+'" onclick="toggle('+m.id+')" style="animation-delay:'+delay+'ms">'+
-    '<div class="card-top">'+
-    '<div class="av av-sin">'+init+'<div class="av-pin pin-purple">'+catEmoji+'</div></div>'+
-    '<div class="cb">'+
-    '<div class="ct"><span class="cn">'+m.contact+'</span><span class="ctime">'+hrs(m.hours||0)+'</span></div>'+
-    '<div class="cprev">'+m.preview+'</div>'+
-    '<div class="task-pill tp-sin">👁️ No respondiste</div>'+
+function taskCardHTML(t,prio,delay,isMio,isSin){
+  const isOpen=expanded===t.id;
+  const prioClass=isMio?'c-mio':isSin?'c-sin':('c-'+(t.priority||'semana'));
+  const tpClass=isMio?'tt-mio':isSin?'tt-sin':('tt-'+(t.priority||'semana'));
+  const label=isMio?'📝 '+t.task:isSin?'👁️ No respondiste':t.task;
+
+  let meetBadge='';
+  if(t.meeting&&(t.meeting.time||t.meeting.date)){
+    meetBadge='<span class="meeting-badge">📍 '+[t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' ')+'</span>';
+  }
+
+  let actions='';
+  if(isSin){
+    actions='<button class="btn-keep" onclick="keepTask('+t.id+')">📥 Es pendiente</button>'+
+            '<button class="btn-ok" onclick="resolve('+t.id+')">✅ Ya respondí</button>'+
+            '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
+  } else {
+    actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Listo</button>'+
+            '<button class="btn-zz" onclick="snooze('+t.id+')">😴</button>'+
+            '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
+  }
+
+  return '<div class="task-card '+prioClass+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" style="animation-delay:'+delay+'ms">'+
+    '<div class="tc-main">'+
+    '<div class="tc-body">'+
+    '<div class="tc-top"><span class="tc-prev">'+t.preview+'</span><span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
+    '<div><span class="tc-task '+tpClass+'">'+label+'</span>'+meetBadge+'</div>'+
     '</div></div>'+
-    '<div class="card-detail '+(isOpen?'open':'')+'" id="detail-'+m.id+'" onclick="event.stopPropagation()">'+
-    '<div class="dl">'+catEmoji+' '+cat.toUpperCase()+' · Sin respuesta tuya</div>'+
-    '<div class="dtask">"'+m.preview+'"</div>'+
-    '<div class="dactions">'+
-    '<button class="btn-keep" onclick="keepTask('+m.id+')">📥 Es pendiente</button>'+
-    '<button class="btn-resolve" onclick="resolve('+m.id+')">✅ Ya respondí</button>'+
-    '<button class="btn-del" onclick="resolve('+m.id+')">🗑</button>'+
-    '</div></div></div>';
+    '<div class="tc-detail '+(isOpen?'open':'')+'" id="detail-'+t.id+'" onclick="event.stopPropagation()">'+
+    '<div class="dl">'+(isMio?'✍️ MI COMPROMISO':isSin?'👁️ SIN RESPONDER':'📌 TAREA')+'</div>'+
+    '<div class="dtask">'+t.task+'</div>'+
+    '<div class="dactions">'+actions+'</div>'+
+    '</div></div>';
 }
 
 function toggle(id){expanded=expanded===id?null:id;renderTasks();setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
