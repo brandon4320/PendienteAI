@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PendienteAI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bricolage+Grotesque:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080c0a; --surface: #0f1410; --surface2: #161d17; --surface3: #1d261e;
+    --border: #1e271f; --border2: #253028; --text: #e8f0e9;
+    --muted: #3d4f3e; --muted2: #6b7d6c;
+    --accent: #25d366; --accent-dim: rgba(37,211,102,0.1);
+    --red: #ff5c5c; --red-dim: rgba(255,92,92,0.08); --red-border: rgba(255,92,92,0.2);
+    --font: 'Bricolage Grotesque', sans-serif; --mono: 'DM Mono', monospace;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  .app { max-width: 430px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 4px; flex-shrink: 0; }
+  .header { padding: 4px 20px 0; flex-shrink: 0; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .app-name { font-size: 26px; font-weight: 800; letter-spacing: -1px; background: linear-gradient(135deg, #e8f0e9, #25d366); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .conn-badge { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface); font-family: var(--mono); font-size: 10px; }
+  .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: breathe 2s ease-in-out infinite; }
+  .conn-dot.off { background: var(--red); animation: none; }
+  @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .header-sub { font-family: var(--mono); font-size: 10px; color: var(--muted2); }
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding: 12px 20px 0; flex-shrink: 0; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px; text-align: center; }
+  .stat-n { font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+  .stat-n-red { color: var(--red); } .stat-n-green { color: var(--accent); }
+  .stat-label { font-family: var(--mono); font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+  .scan-area { padding: 10px 20px 0; flex-shrink: 0; }
+  .btn-scan { width: 100%; padding: 13px; background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.25); border-radius: 16px; color: var(--accent); font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+  .btn-scan:active { transform: scale(0.98); }
+  .btn-scan.scanning { border-color: rgba(37,211,102,0.5); animation: scanPulse 1s ease-in-out infinite; }
+  @keyframes scanPulse { 0%,100%{box-shadow:0 0 0 0 rgba(37,211,102,0)} 50%{box-shadow:0 0 20px rgba(37,211,102,0.2)} }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .tabs { display: flex; padding: 12px 20px 0; gap: 6px; flex-shrink: 0; }
+  .tab { flex: 1; padding: 9px 6px; background: transparent; border: 1px solid var(--border); color: var(--muted2); font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 12px; transition: all 0.2s; }
+  .tab.active { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .content { flex: 1; overflow-y: auto; padding: 10px 20px 80px; scrollbar-width: none; }
+  .content::-webkit-scrollbar { display: none; }
+  .section-title { display: flex; align-items: center; gap: 8px; padding: 10px 0 6px; font-family: var(--mono); font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  .msg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; margin-bottom: 8px; overflow: hidden; cursor: pointer; animation: slideIn 0.3s ease forwards; opacity: 0; transform: translateY(8px); }
+  @keyframes slideIn { to{opacity:1;transform:translateY(0)} }
+  .msg-card.urgent { border-color: var(--red-border); background: var(--red-dim); }
+  .msg-main { display: flex; align-items: flex-start; gap: 12px; padding: 14px; }
+  .avatar { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; font-family: var(--mono); position: relative; }
+  .avatar-urgent { background: rgba(255,92,92,0.15); border: 1px solid rgba(255,92,92,0.25); color: var(--red); }
+  .avatar-normal { background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
+  .avatar-badge { position: absolute; bottom: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: 700; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
+  .msg-name { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .msg-time { font-family: var(--mono); font-size: 10px; color: var(--muted2); flex-shrink: 0; margin-left: 8px; }
+  .msg-preview { font-size: 12px; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-chip { margin-top: 8px; display: flex; align-items: flex-start; gap: 6px; background: rgba(255,92,92,0.07); border: 1px solid rgba(255,92,92,0.15); border-radius: 10px; padding: 7px 10px; }
+  .task-text { font-size: 12px; font-weight: 600; color: #ff8080; line-height: 1.4; }
+  .urgent-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; margin-top: 3px; animation: breathe 1.5s ease-in-out infinite; }
+  .card-detail { border-top: 1px solid var(--border); padding: 14px; display: none; }
+  .card-detail.open { display: block; animation: expandIn 0.2s ease; }
+  @keyframes expandIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .detail-label { font-family: var(--mono); font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .detail-task { font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); margin-bottom: 12px; padding: 10px 12px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border2); }
+  .detail-actions { display: flex; gap: 8px; }
+  .btn-wa { flex: 1; padding: 12px; background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.3); color: var(--accent); border-radius: 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-done { padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border2); color: var(--muted2); border-radius: 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .msg-card.dismissing { animation: dismissOut 0.3s ease forwards; }
+  @keyframes dismissOut { to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0} }
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted2); }
+  .empty-emoji { font-size: 48px; margin-bottom: 12px; }
+  .empty-title { font-size: 18px; font-weight: 700; color: var(--text); }
+  .empty-sub { font-size: 13px; margin-top: 6px; line-height: 1.6; }
+  .loading { text-align: center; padding: 60px 20px; }
+  .loading-spinner { width: 32px; height: 32px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+  .loading-text { font-family: var(--mono); font-size: 12px; color: var(--muted2); }
+  .error-box { margin: 16px 0; padding: 14px; background: var(--red-dim); border: 1px solid var(--red-border); border-radius: 14px; font-size: 13px; color: var(--red); text-align: center; line-height: 1.5; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface2); border: 1px solid var(--accent); border-radius: 14px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="status-bar">
+    <span id="clock" style="font-family:var(--mono);font-size:13px;font-weight:500">9:41</span>
+    <div style="display:flex;gap:5px;align-items:center">
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="4" width="3" height="7" rx="1"/><rect x="4" y="2.5" width="3" height="8.5" rx="1"/><rect x="8" y="1" width="3" height="10" rx="1"/><rect x="12" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="17" height="8" rx="2" fill="currentColor"/></svg>
+    </div>
+  </div>
+  <div class="header">
+    <div class="header-row">
+      <div class="app-name">PendienteAI</div>
+      <div class="conn-badge"><div class="conn-dot" id="connDot"></div><span id="connText">Conectando...</span></div>
+    </div>
+    <div class="header-sub">WAHA · Groq AI · Tu WhatsApp personal</div>
+  </div>
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-n stat-n-red">-</div><div class="stat-label">Críticos</div></div>
+    <div class="stat"><div class="stat-n">-</div><div class="stat-label">Sin resp.</div></div>
+    <div class="stat"><div class="stat-n stat-n-green">-</div><div class="stat-label">Total</div></div>
+  </div>
+  <div class="scan-area">
+    <button class="btn-scan" id="scanBtn" onclick="loadTasks()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Actualizar tareas
+    </button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('tasks',this)">Tareas</button>
+    <button class="tab" onclick="switchTab('widget',this)">Widget</button>
+  </div>
+  <div class="content" id="tab-tasks">
+    <div class="loading"><div class="loading-spinner"></div><div class="loading-text">Cargando tareas...</div></div>
+  </div>
+  <div class="content" id="tab-widget" style="display:none"><div id="widget-content"></div></div>
+</div>
+<div class="toast" id="toast"><span id="toastText"></span></div>
+<script>
+const API = 'http://5.75.174.110:3001';
+let tasks = [], expanded = null;
+
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+updateClock(); setInterval(updateClock, 10000);
+
+let toastTimer;
+function showToast(text) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastText').textContent = text;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function setConnected(ok) {
+  document.getElementById('connDot').className = 'conn-dot' + (ok ? '' : ' off');
+  document.getElementById('connText').textContent = ok ? 'En vivo' : 'Sin conexión';
+}
+
+async function loadTasks() {
+  const btn = document.getElementById('scanBtn');
+  btn.classList.add('scanning');
+  btn.innerHTML = '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Actualizando...';
+  try {
+    const res = await fetch(API + '/tasks');
+    if (!res.ok) throw new Error('Error ' + res.status);
+    tasks = await res.json();
+    setConnected(true);
+    renderStats(); renderTasks(); renderWidget();
+    showToast('✅ ' + tasks.length + ' tareas cargadas');
+  } catch(e) {
+    setConnected(false);
+    document.getElementById('tab-tasks').innerHTML = '<div class="error-box">No se pudo conectar al servidor<br><small style="opacity:0.7">' + e.message + '</small></div>';
+    showToast('❌ Error de conexión');
+  } finally {
+    btn.classList.remove('scanning');
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar tareas';
+  }
+}
+
+async function deleteTask(id) {
+  try { await fetch(API + '/tasks/' + id, { method: 'DELETE' }); } catch(e) {}
+  tasks = tasks.filter(t => t.id != id);
+  renderStats(); renderTasks(); renderWidget();
+}
+
+function getInitials(name) { return (name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function formatHours(h) { if(h<1) return 'recién'; if(h<24) return 'hace '+h+'h'; return 'hace '+Math.floor(h/24)+'d'; }
+
+function renderStats() {
+  const u = tasks.filter(m=>m.urgent).length, n = tasks.filter(m=>!m.urgent).length;
+  document.getElementById('stats').innerHTML =
+    '<div class="stat"><div class="stat-n stat-n-red">'+u+'</div><div class="stat-label">Críticos</div></div>' +
+    '<div class="stat"><div class="stat-n">'+n+'</div><div class="stat-label">Sin resp.</div></div>' +
+    '<div class="stat"><div class="stat-n stat-n-green">'+tasks.length+'</div><div class="stat-label">Total</div></div>';
+}
+
+function renderTasks() {
+  const el = document.getElementById('tab-tasks');
+  const urgent = tasks.filter(m=>m.urgent), normal = tasks.filter(m=>!m.urgent);
+  if (!tasks.length) { el.innerHTML = '<div class="empty"><div class="empty-emoji">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tenés mensajes<br>pendientes por ahora</div></div>'; return; }
+  let html = '';
+  if (urgent.length) { html += '<div class="section-title">🔴 críticos · '+urgent.length+'</div>'; urgent.forEach((m,i)=>{html+=cardHTML(m,i*50);}); }
+  if (normal.length) { html += '<div class="section-title" style="margin-top:4px">⚪ sin responder · '+normal.length+'</div>'; normal.forEach((m,i)=>{html+=cardHTML(m,(urgent.length+i)*50);}); }
+  el.innerHTML = html;
+}
+
+function cardHTML(m, delay) {
+  const isOpen = expanded===m.id, init = getInitials(m.contact);
+  return '<div class="msg-card '+(m.urgent?'urgent':'')+'" id="card-'+m.id+'" onclick="toggleCard('+m.id+')" style="animation-delay:'+delay+'ms">' +
+    '<div class="msg-main">' +
+    '<div class="avatar '+(m.urgent?'avatar-urgent':'avatar-normal')+'">'+init+(m.urgent?'<div class="avatar-badge">!</div>':'')+'</div>' +
+    '<div class="msg-body">' +
+    '<div class="msg-top"><span class="msg-name">'+m.contact+'</span><span class="msg-time">'+formatHours(m.hours)+'</span></div>' +
+    '<div class="msg-preview">'+m.preview+'</div>' +
+    (m.urgent?'<div class="task-chip"><span class="task-text">📌 '+m.task+'</span></div>':'<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:5px">⏱ '+m.task+'</div>') +
+    '</div>'+(m.urgent?'<div class="urgent-indicator"></div>':'')+'</div>' +
+    '<div class="card-detail '+(isOpen?'open':'')+'" id="detail-'+m.id+'" onclick="event.stopPropagation()">' +
+    '<div class="detail-label">Tarea detectada por IA</div>' +
+    '<div class="detail-task">'+m.task+'</div>' +
+    '<div class="detail-actions">' +
+    '<button class="btn-wa" onclick="resolve('+m.id+')">✅ Marcar resuelto</button>' +
+    '<button class="btn-done" onclick="resolve('+m.id+')">Listo ✓</button>' +
+    '</div></div></div>';
+}
+
+function toggleCard(id) {
+  expanded = expanded===id ? null : id;
+  renderTasks();
+  setTimeout(()=>{ const el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },50);
+}
+
+function resolve(id) {
+  const card = document.getElementById('card-'+id);
+  if(card) { card.classList.add('dismissing'); setTimeout(()=>{ deleteTask(id); showToast('✅ Tarea resuelta'); },280); }
+}
+
+function renderWidget() {
+  const urgent = tasks.filter(m=>m.urgent), normal = tasks.filter(m=>!m.urgent);
+  document.getElementById('widget-content').innerHTML =
+    '<div style="padding:8px 0 16px">' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--muted2);text-align:center;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">WIDGET · PANTALLA DE INICIO</div>' +
+    '<div style="background:linear-gradient(145deg,#1a1a1a,#111);border:1px solid #2a2a2a;border-radius:20px;padding:16px;">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div style="width:22px;height:22px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px">💬</div><span style="font-size:13px;font-weight:700;flex:1">PendienteAI</span><div style="background:var(--red);color:white;font-size:11px;font-weight:700;width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono)">'+tasks.length+'</div></div>' +
+    '<div style="font-family:var(--mono);font-size:8px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">🔴 CRÍTICOS</div>' +
+    urgent.slice(0,2).map(m=>'<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:rgba(255,92,92,0.07);border:1px solid rgba(255,92,92,0.12);border-radius:10px;margin-bottom:4px"><div style="width:24px;height:24px;border-radius:7px;background:rgba(255,92,92,0.2);color:var(--red);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:var(--mono);flex-shrink:0">'+getInitials(m.contact)+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.contact+'</div><div style="font-size:9px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.task+'</div></div><div style="font-family:var(--mono);font-size:9px;color:var(--red);flex-shrink:0">'+m.hours+'h</div></div>').join('') +
+    (urgent.length===0?'<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);padding:4px">Ninguno 🎉</div>':'') +
+    '<div style="height:1px;background:var(--border);margin:10px 0"></div>' +
+    '<div style="font-family:var(--mono);font-size:8px;color:var(--muted2);text-transform:uppercase;margin-bottom:6px">⚪ SIN RESPONDER</div>' +
+    normal.slice(0,1).map(m=>'<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:10px"><div style="width:24px;height:24px;border-radius:7px;background:var(--surface3);color:var(--muted2);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:var(--mono);flex-shrink:0">'+getInitials(m.contact)+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.contact+'</div><div style="font-size:9px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.task+'</div></div><div style="font-family:var(--mono);font-size:9px;color:var(--muted2);flex-shrink:0">'+m.hours+'h</div></div>').join('') +
+    (normal.length===0?'<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);padding:4px">Ninguno 🎉</div>':'') +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">Actualizado ahora</span><div style="width:5px;height:5px;border-radius:50%;background:var(--accent);animation:breathe 2s ease-in-out infinite"></div></div>' +
+    '</div>' +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:12px">' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Instalar widget en iPhone</div>' +
+    ['1. Descargá <b>Scriptable</b> de la App Store (gratis)','2. Copiá el script del widget de la guía','3. Mantené presionada la pantalla de inicio','4. Tocá + → Scriptable → tamaño mediano'].map(s=>'<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0"></div><div style="font-size:12px;color:var(--muted2);line-height:1.5">'+s+'</div></div>').join('') +
+    '</div></div>';
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-tasks').style.display = tab==='tasks'?'block':'none';
+  document.getElementById('tab-widget').style.display = tab==='widget'?'block':'none';
+}
+
+setInterval(loadTasks, 60000);
+loadTasks();
+</script>
+</body>
+</html>
