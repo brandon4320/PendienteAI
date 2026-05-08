@@ -13,6 +13,7 @@
     --muted: #3d4f3e; --muted2: #6b7d6c;
     --accent: #25d366; --accent-dim: rgba(37,211,102,0.1);
     --red: #ff5c5c; --red-dim: rgba(255,92,92,0.08); --red-border: rgba(255,92,92,0.2);
+    --blue: #4a9eff; --blue-dim: rgba(74,158,255,0.08); --blue-border: rgba(74,158,255,0.2);
     --font: 'Bricolage Grotesque', sans-serif; --mono: 'DM Mono', monospace;
   }
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; overflow: hidden; }
@@ -26,34 +27,64 @@
   .conn-dot.off { background: var(--red); animation: none; }
   @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.4} }
   .header-sub { font-family: var(--mono); font-size: 10px; color: var(--muted2); }
-  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding: 12px 20px 0; flex-shrink: 0; }
-  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px; text-align: center; }
-  .stat-n { font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
-  .stat-n-red { color: var(--red); } .stat-n-green { color: var(--accent); }
-  .stat-label { font-family: var(--mono); font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+
+  /* STATS */
+  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; padding: 12px 20px 0; flex-shrink: 0; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 8px; text-align: center; }
+  .stat-n { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+  .stat-n-red { color: var(--red); }
+  .stat-n-green { color: var(--accent); }
+  .stat-n-blue { color: var(--blue); }
+  .stat-label { font-family: var(--mono); font-size: 8px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  /* FILTER TABS */
+  .filter-tabs { display: flex; padding: 10px 20px 0; gap: 6px; flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+  .filter-tabs::-webkit-scrollbar { display: none; }
+  .filter-tab { padding: 7px 14px; background: transparent; border: 1px solid var(--border); color: var(--muted2); font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 20px; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
+  .filter-tab.active { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .filter-tab.trabajo.active { background: rgba(74,158,255,0.1); border-color: var(--blue); color: var(--blue); }
+  .filter-tab.personal.active { background: rgba(37,211,102,0.1); border-color: var(--accent); color: var(--accent); }
+  .filter-tab.urgente.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+  /* SCAN */
   .scan-area { padding: 10px 20px 0; flex-shrink: 0; }
-  .btn-scan { width: 100%; padding: 13px; background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.25); border-radius: 16px; color: var(--accent); font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
-  .tabs { display: flex; padding: 12px 20px 0; gap: 6px; flex-shrink: 0; }
-  .tab { flex: 1; padding: 9px 6px; background: transparent; border: 1px solid var(--border); color: var(--muted2); font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 12px; transition: all 0.2s; }
-  .tab.active { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .btn-scan { width: 100%; padding: 12px; background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.25); border-radius: 14px; color: var(--accent); font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+  .btn-scan:active { transform: scale(0.98); }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* CONTENT */
   .content { flex: 1; overflow-y: auto; padding: 10px 20px 80px; scrollbar-width: none; }
   .content::-webkit-scrollbar { display: none; }
   .section-title { display: flex; align-items: center; gap: 8px; padding: 10px 0 6px; font-family: var(--mono); font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; }
   .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* CARDS */
   .msg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; margin-bottom: 8px; overflow: hidden; cursor: pointer; animation: slideIn 0.3s ease forwards; opacity: 0; transform: translateY(8px); }
   @keyframes slideIn { to{opacity:1;transform:translateY(0)} }
   .msg-card.urgent { border-color: var(--red-border); background: var(--red-dim); }
+  .msg-card.trabajo { border-color: var(--blue-border); }
   .msg-main { display: flex; align-items: flex-start; gap: 12px; padding: 14px; }
   .avatar { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; font-family: var(--mono); position: relative; }
   .avatar-urgent { background: rgba(255,92,92,0.15); border: 1px solid rgba(255,92,92,0.25); color: var(--red); }
-  .avatar-normal { background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
+  .avatar-trabajo { background: rgba(74,158,255,0.15); border: 1px solid rgba(74,158,255,0.25); color: var(--blue); }
+  .avatar-personal { background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
+  .avatar-badge { position: absolute; bottom: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: 700; }
+  .cat-badge { position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; font-size: 8px; }
+  .cat-trabajo { background: var(--blue); }
+  .cat-personal { background: var(--accent); }
   .msg-body { flex: 1; min-width: 0; }
   .msg-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
-  .msg-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .msg-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
   .msg-time { font-family: var(--mono); font-size: 10px; color: var(--muted2); flex-shrink: 0; margin-left: 8px; }
   .msg-preview { font-size: 12px; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .task-chip { margin-top: 8px; display: flex; align-items: flex-start; gap: 6px; background: rgba(255,92,92,0.07); border: 1px solid rgba(255,92,92,0.15); border-radius: 10px; padding: 7px 10px; }
-  .task-text { font-size: 12px; font-weight: 600; color: #ff8080; line-height: 1.4; }
+  .task-chip { margin-top: 7px; display: flex; align-items: flex-start; gap: 6px; border-radius: 8px; padding: 6px 9px; }
+  .task-chip-urgent { background: rgba(255,92,92,0.07); border: 1px solid rgba(255,92,92,0.15); }
+  .task-chip-trabajo { background: rgba(74,158,255,0.07); border: 1px solid rgba(74,158,255,0.15); }
+  .task-chip-personal { background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.15); }
+  .task-text-urgent { font-size: 12px; font-weight: 600; color: #ff8080; line-height: 1.4; }
+  .task-text-trabajo { font-size: 12px; font-weight: 600; color: #7ab8ff; line-height: 1.4; }
+  .task-text-personal { font-size: 12px; font-weight: 600; color: #80e8a0; line-height: 1.4; }
   .urgent-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; margin-top: 3px; animation: breathe 1.5s ease-in-out infinite; }
   .card-detail { border-top: 1px solid var(--border); padding: 14px; display: none; }
   .card-detail.open { display: block; }
@@ -64,14 +95,13 @@
   .btn-done { padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border2); color: var(--muted2); border-radius: 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; }
   .msg-card.dismissing { animation: dismissOut 0.3s ease forwards; }
   @keyframes dismissOut { to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0} }
-  .empty { text-align: center; padding: 60px 20px; color: var(--muted2); }
-  .empty-emoji { font-size: 48px; margin-bottom: 12px; }
-  .empty-title { font-size: 18px; font-weight: 700; color: var(--text); }
-  .empty-sub { font-size: 13px; margin-top: 6px; line-height: 1.6; }
-  .loading { text-align: center; padding: 60px 20px; }
-  .loading-spinner { width: 32px; height: 32px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
-  @keyframes spin { to{transform:rotate(360deg)} }
-  .loading-text { font-family: var(--mono); font-size: 12px; color: var(--muted2); }
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted2); }
+  .empty-emoji { font-size: 40px; margin-bottom: 10px; }
+  .empty-title { font-size: 16px; font-weight: 700; color: var(--text); }
+  .empty-sub { font-size: 12px; margin-top: 6px; line-height: 1.6; }
+  .loading { text-align: center; padding: 50px 20px; }
+  .loading-spinner { width: 28px; height: 28px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+  .loading-text { font-family: var(--mono); font-size: 11px; color: var(--muted2); }
   .error-box { margin: 16px 0; padding: 14px; background: var(--red-dim); border: 1px solid var(--red-border); border-radius: 14px; font-size: 13px; color: var(--red); text-align: center; line-height: 1.5; }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface2); border: 1px solid var(--accent); border-radius: 14px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; }
   .toast.show { transform: translateX(-50%) translateY(0); }
@@ -81,6 +111,10 @@
 <div class="app">
   <div class="status-bar">
     <span id="clock" style="font-family:var(--mono);font-size:13px;font-weight:500">9:41</span>
+    <div style="display:flex;gap:5px;align-items:center">
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="4" width="3" height="7" rx="1"/><rect x="4" y="2.5" width="3" height="8.5" rx="1"/><rect x="8" y="1" width="3" height="10" rx="1"/><rect x="12" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="17" height="8" rx="2" fill="currentColor"/></svg>
+    </div>
   </div>
   <div class="header">
     <div class="header-row">
@@ -90,31 +124,38 @@
     <div class="header-sub">WAHA · Groq AI · Tu WhatsApp personal</div>
   </div>
   <div class="stats" id="stats">
-    <div class="stat"><div class="stat-n stat-n-red">-</div><div class="stat-label">Críticos</div></div>
-    <div class="stat"><div class="stat-n">-</div><div class="stat-label">Sin resp.</div></div>
-    <div class="stat"><div class="stat-n stat-n-green">-</div><div class="stat-label">Total</div></div>
+    <div class="stat"><div class="stat-n stat-n-red">-</div><div class="stat-label">Urgentes</div></div>
+    <div class="stat"><div class="stat-n stat-n-blue">-</div><div class="stat-label">Trabajo</div></div>
+    <div class="stat"><div class="stat-n stat-n-green">-</div><div class="stat-label">Personal</div></div>
+    <div class="stat"><div class="stat-n">-</div><div class="stat-label">Total</div></div>
+  </div>
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="setFilter('all',this)">🔔 Todos</button>
+    <button class="filter-tab urgente" onclick="setFilter('urgente',this)">🔴 Urgentes</button>
+    <button class="filter-tab trabajo" onclick="setFilter('trabajo',this)">💼 Trabajo</button>
+    <button class="filter-tab personal" onclick="setFilter('personal',this)">👥 Personal</button>
   </div>
   <div class="scan-area">
-    <button class="btn-scan" id="scanBtn" onclick="loadTasks()">🔍 Actualizar tareas</button>
+    <button class="btn-scan" id="scanBtn" onclick="loadTasks()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Actualizar
+    </button>
   </div>
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('tasks',this)">Tareas</button>
-    <button class="tab" onclick="switchTab('widget',this)">Widget</button>
+  <div class="content" id="main-content">
+    <div class="loading"><div class="loading-spinner"></div><div class="loading-text">Cargando...</div></div>
   </div>
-  <div class="content" id="tab-tasks">
-    <div class="loading"><div class="loading-spinner"></div><div class="loading-text">Cargando tareas...</div></div>
-  </div>
-  <div class="content" id="tab-widget" style="display:none"><div id="widget-content">Widget próximamente</div></div>
 </div>
 <div class="toast" id="toast"><span id="toastText"></span></div>
 <script>
 const API = 'https://pendiente.transtidefreight.com';
-let tasks = [], expanded = null;
+let tasks = [], expanded = null, currentFilter = 'all';
+
 function updateClock() {
   const d = new Date();
   document.getElementById('clock').textContent = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 updateClock(); setInterval(updateClock, 10000);
+
 let toastTimer;
 function showToast(text) {
   const t = document.getElementById('toast');
@@ -123,70 +164,134 @@ function showToast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
+
 function setConnected(ok) {
   document.getElementById('connDot').className = 'conn-dot' + (ok ? '' : ' off');
   document.getElementById('connText').textContent = ok ? 'En vivo' : 'Sin conexión';
 }
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderTasks();
+}
+
 async function loadTasks() {
+  const btn = document.getElementById('scanBtn');
+  btn.classList.add('scanning');
+  btn.innerHTML = '<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Actualizando...';
   try {
     const res = await fetch(API + '/tasks');
     if (!res.ok) throw new Error('Error ' + res.status);
     tasks = await res.json();
     setConnected(true);
-    renderStats(); renderTasks();
+    renderStats();
+    renderTasks();
     showToast('✅ ' + tasks.length + ' tareas');
   } catch(e) {
     setConnected(false);
-    document.getElementById('tab-tasks').innerHTML = '<div class="error-box">Sin conexión<br><small>' + e.message + '</small></div>';
+    document.getElementById('main-content').innerHTML = '<div class="error-box">Sin conexión<br><small>' + e.message + '</small></div>';
+  } finally {
+    btn.classList.remove('scanning');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
   }
 }
+
 async function deleteTask(id) {
   try { await fetch(API + '/tasks/' + id, { method: 'DELETE' }); } catch(e) {}
   tasks = tasks.filter(t => t.id != id);
   renderStats(); renderTasks();
 }
+
 function getInitials(n) { return (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
 function formatHours(h) { if(h<1) return 'recién'; if(h<24) return 'hace '+h+'h'; return 'hace '+Math.floor(h/24)+'d'; }
+
 function renderStats() {
-  const u = tasks.filter(m=>m.urgent).length, n = tasks.filter(m=>!m.urgent).length;
+  const urgent = tasks.filter(m=>m.urgent).length;
+  const trabajo = tasks.filter(m=>m.category==='trabajo').length;
+  const personal = tasks.filter(m=>m.category==='personal').length;
   document.getElementById('stats').innerHTML =
-    '<div class="stat"><div class="stat-n stat-n-red">'+u+'</div><div class="stat-label">Críticos</div></div>' +
-    '<div class="stat"><div class="stat-n">'+n+'</div><div class="stat-label">Sin resp.</div></div>' +
-    '<div class="stat"><div class="stat-n stat-n-green">'+tasks.length+'</div><div class="stat-label">Total</div></div>';
+    '<div class="stat"><div class="stat-n stat-n-red">'+urgent+'</div><div class="stat-label">Urgentes</div></div>' +
+    '<div class="stat"><div class="stat-n stat-n-blue">'+trabajo+'</div><div class="stat-label">Trabajo</div></div>' +
+    '<div class="stat"><div class="stat-n stat-n-green">'+personal+'</div><div class="stat-label">Personal</div></div>' +
+    '<div class="stat"><div class="stat-n">'+tasks.length+'</div><div class="stat-label">Total</div></div>';
 }
+
+function getFiltered() {
+  if (currentFilter === 'urgente') return tasks.filter(m=>m.urgent);
+  if (currentFilter === 'trabajo') return tasks.filter(m=>m.category==='trabajo');
+  if (currentFilter === 'personal') return tasks.filter(m=>m.category==='personal');
+  return tasks;
+}
+
 function renderTasks() {
-  const el = document.getElementById('tab-tasks');
-  const urgent = tasks.filter(m=>m.urgent), normal = tasks.filter(m=>!m.urgent);
-  if (!tasks.length) { el.innerHTML = '<div class="empty"><div class="empty-emoji">✅</div><div class="empty-title">Todo al día</div></div>'; return; }
+  const el = document.getElementById('main-content');
+  const filtered = getFiltered();
+  const urgent = filtered.filter(m=>m.urgent);
+  const normal = filtered.filter(m=>!m.urgent);
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-emoji">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No hay pendientes en esta categoría</div></div>';
+    return;
+  }
+
   let html = '';
-  if (urgent.length) { html += '<div class="section-title">🔴 críticos · '+urgent.length+'</div>'; urgent.forEach((m,i)=>{html+=cardHTML(m,i*50);}); }
-  if (normal.length) { html += '<div class="section-title">⚪ sin responder · '+normal.length+'</div>'; normal.forEach((m,i)=>{html+=cardHTML(m,(urgent.length+i)*50);}); }
+  if (urgent.length) {
+    html += '<div class="section-title">🔴 urgentes · '+urgent.length+'</div>';
+    urgent.forEach((m,i) => { html += cardHTML(m, i*40); });
+  }
+  if (normal.length) {
+    html += '<div class="section-title" style="margin-top:4px">'+(currentFilter==='trabajo'?'💼':'currentFilter'==='personal'?'👥':'⚪')+' pendientes · '+normal.length+'</div>';
+    normal.forEach((m,i) => { html += cardHTML(m, (urgent.length+i)*40); });
+  }
   el.innerHTML = html;
 }
+
 function cardHTML(m, delay) {
-  const isOpen = expanded===m.id, init = getInitials(m.contact);
-  return '<div class="msg-card '+(m.urgent?'urgent':'')+'" id="card-'+m.id+'" onclick="toggleCard('+m.id+')" style="animation-delay:'+delay+'ms">'+
-    '<div class="msg-main"><div class="avatar '+(m.urgent?'avatar-urgent':'avatar-normal')+'">'+init+'</div>'+
-    '<div class="msg-body"><div class="msg-top"><span class="msg-name">'+m.contact+'</span><span class="msg-time">'+formatHours(m.hours)+'</span></div>'+
+  const isOpen = expanded===m.id;
+  const init = getInitials(m.contact);
+  const cat = m.category || 'personal';
+  const isWork = cat === 'trabajo';
+  const chipClass = m.urgent ? 'task-chip-urgent' : (isWork ? 'task-chip-trabajo' : 'task-chip-personal');
+  const textClass = m.urgent ? 'task-text-urgent' : (isWork ? 'task-text-trabajo' : 'task-text-personal');
+  const avatarClass = m.urgent ? 'avatar-urgent' : (isWork ? 'avatar-trabajo' : 'avatar-personal');
+  const cardClass = m.urgent ? 'urgent' : (isWork ? 'trabajo' : '');
+  const catEmoji = isWork ? '💼' : '👥';
+
+  return '<div class="msg-card '+cardClass+'" id="card-'+m.id+'" onclick="toggleCard('+m.id+')" style="animation-delay:'+delay+'ms">'+
+    '<div class="msg-main">'+
+    '<div class="avatar '+avatarClass+'">'+init+
+    '<div class="cat-badge '+(isWork?'cat-trabajo':'cat-personal')+'">'+catEmoji+'</div>'+
+    (m.urgent?'<div class="avatar-badge">!</div>':'')+
+    '</div>'+
+    '<div class="msg-body">'+
+    '<div class="msg-top"><span class="msg-name">'+m.contact+'</span><span class="msg-time">'+formatHours(m.hours)+'</span></div>'+
     '<div class="msg-preview">'+m.preview+'</div>'+
-    (m.urgent?'<div class="task-chip"><span class="task-text">📌 '+m.task+'</span></div>':'<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:5px">⏱ '+m.task+'</div>')+
-    '</div>'+(m.urgent?'<div class="urgent-indicator"></div>':'')+'</div>'+
+    '<div class="task-chip '+chipClass+'"><span class="'+textClass+'">'+m.task+'</span></div>'+
+    '</div>'+
+    (m.urgent?'<div class="urgent-indicator"></div>':'')+
+    '</div>'+
     '<div class="card-detail '+(isOpen?'open':'')+'" id="detail-'+m.id+'" onclick="event.stopPropagation()">'+
-    '<div class="detail-label">Tarea IA</div><div class="detail-task">'+m.task+'</div>'+
-    '<div class="detail-actions"><button class="btn-wa" onclick="resolve('+m.id+')">✅ Resuelto</button>'+
-    '<button class="btn-done" onclick="resolve('+m.id+')">✓</button></div></div></div>';
+    '<div class="detail-label">'+catEmoji+' '+cat.toUpperCase()+' · Tarea detectada por IA</div>'+
+    '<div class="detail-task">'+m.task+'</div>'+
+    '<div class="detail-actions">'+
+    '<button class="btn-wa" onclick="resolve('+m.id+')">✅ Marcar resuelto</button>'+
+    '<button class="btn-done" onclick="resolve('+m.id+')">Listo ✓</button>'+
+    '</div></div></div>';
 }
-function toggleCard(id) { expanded = expanded===id ? null : id; renderTasks(); }
+
+function toggleCard(id) {
+  expanded = expanded===id ? null : id;
+  renderTasks();
+  setTimeout(()=>{ const el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },50);
+}
+
 function resolve(id) {
   const c = document.getElementById('card-'+id);
   if(c) { c.classList.add('dismissing'); setTimeout(()=>{ deleteTask(id); showToast('✅ Resuelto'); },280); }
 }
-function switchTab(tab, btn) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-tasks').style.display = tab==='tasks'?'block':'none';
-  document.getElementById('tab-widget').style.display = tab==='widget'?'block':'none';
-}
+
 setInterval(loadTasks, 60000);
 loadTasks();
 </script>
