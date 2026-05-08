@@ -1,6 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const Groq = require('groq-sdk');
+const Database = require('better-sqlite3');
+const path = require('path');
+
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
@@ -13,11 +16,62 @@ app.use((req, res, next) => {
   next();
 });
 
+// ─── BASE DE DATOS SQLITE ────────────────────────────────────────────────────
+const db = new Database(path.join(__dirname, 'tasks.db'));
+
+// Crear tablas si no existen
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact TEXT NOT NULL,
+    preview TEXT,
+    full_preview TEXT,
+    msg_count INTEGER DEFAULT 1,
+    task TEXT NOT NULL,
+    priority TEXT DEFAULT 'hoy',
+    urgent INTEGER DEFAULT 0,
+    category TEXT DEFAULT 'personal',
+    meeting_date TEXT,
+    meeting_time TEXT,
+    meeting_location TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME
+  );
+  CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
+  CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
+`);
+
+// Limpiar tareas resueltas con más de 30 días (ejecutar al inicio y cada noche)
+function cleanOldTasks() {
+  const result = db.prepare(`
+    DELETE FROM tasks 
+    WHERE status = 'resolved' 
+    AND resolved_at < datetime('now', '-30 days')
+  `).run();
+  if (result.changes > 0) console.log(`Limpieza: ${result.changes} tareas eliminadas`);
+}
+
+cleanOldTasks();
+
+// Programar limpieza diaria a las 3am
+function scheduleDailyClean() {
+  const now = new Date();
+  const next3am = new Date();
+  next3am.setHours(3, 0, 0, 0);
+  if (next3am <= now) next3am.setDate(next3am.getDate() + 1);
+  const msUntil3am = next3am - now;
+  setTimeout(() => {
+    cleanOldTasks();
+    setInterval(cleanOldTasks, 24 * 60 * 60 * 1000);
+  }, msUntil3am);
+}
+scheduleDailyClean();
+
+// ─── GROQ ────────────────────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-let tasks = [];
 let messageGroups = {};
 
-// Palabras clave que SIEMPRE deben capturarse sin importar la categoría
 const ALWAYS_CAPTURE = [
   /cita|mañana|hoy|esta noche|esta tarde|nos vemos|te espero|a las|venís|vengo|paso a buscar/i,
   /reunión|meeting|junta|llamada|llámame|llamame|urgente|importante/i,
@@ -37,37 +91,34 @@ async function analyzeMessage(contact, messages) {
     model: 'llama-3.1-8b-instant',
     messages: [{
       role: 'user',
-      content: `Sos mi asistente personal de productividad. Analizá este/estos mensajes de WhatsApp.
+      content: `Sos mi asistente personal. Analizá este/estos mensajes de WhatsApp.
 Hora actual: ${timeStr}
 
 CONTACTO: ${contact}
 MENSAJE(S): ${msgText}
 
-REGLAS IMPORTANTES:
-- Si el mensaje menciona una cita, plan, encuentro, "mañana", "hoy", "nos vemos", hora concreta → SIEMPRE marcar needsAction:true
-- Si el mensaje hace una pregunta directa → needsAction:true
-- Si el contacto pide confirmación → needsAction:true
-- Solo ignorar: spam masivo, publicidad, venta de entradas a desconocidos, broadcasts
+REGLAS:
+- Si menciona cita, plan, "mañana", "nos vemos", hora concreta → needsAction:true
+- Si hace pregunta directa o pide confirmación → needsAction:true
+- Solo ignorar: spam masivo, publicidad, venta de entradas, broadcasts
 
 CATEGORÍA:
-- "trabajo": nombre con transtide/financiera/cliente/proveedor/obra o tema laboral
-- "personal": pareja, amigos, familia, planes sociales
+- "trabajo": transtide/financiera/cliente/proveedor/obra en nombre, o tema laboral
+- "personal": pareja, amigos, familia
 
 PRIORIDAD:
-- "ahora": reuniones/pagos hoy con hora concreta, cosas urgentes de trabajo
-- "hoy": necesita respuesta hoy, cita o plan para mañana/esta semana que confirmaste
-- "semana": planes futuros, cosas sin urgencia inmediata
-- "ignorar": spam, publicidad, broadcasts masivos
-
-DETECTAR REUNIÓN: si hay fecha/hora/lugar extraé los datos.
+- "ahora": urgente hoy con hora concreta
+- "hoy": necesita respuesta hoy o cita para mañana
+- "semana": planes futuros sin urgencia
+- "ignorar": spam, publicidad
 
 Respondé SOLO en JSON:
 {
   "needsAction": true/false,
   "priority": "ahora|hoy|semana|ignorar",
   "category": "trabajo|personal",
-  "task": "qué tengo que hacer en máximo 8 palabras",
-  "meeting": { "date": "fecha", "time": "hora", "location": "lugar" } o null,
+  "task": "qué hacer en máximo 8 palabras",
+  "meeting": { "date": "fecha si hay", "time": "hora si hay", "location": "lugar si hay" } o null,
   "urgent": true/false
 }`
     }],
@@ -83,9 +134,9 @@ Respondé SOLO en JSON:
   }
 }
 
+// ─── WEBHOOK ─────────────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
-
   try {
     const { event, payload } = req.body;
     if (event !== 'message') return;
@@ -98,83 +149,143 @@ app.post('/webhook', async (req, res) => {
     if (!payload._data?.notifyName && contact.includes('@g.us')) return;
     if (!text || text.length < 3) return;
 
-    const groupKey = contact;
-    if (!messageGroups[groupKey]) {
-      messageGroups[groupKey] = { messages: [], timer: null };
-    }
-    messageGroups[groupKey].messages.push(text);
+    // Agrupar mensajes del mismo contacto
+    if (!messageGroups[contact]) messageGroups[contact] = { messages: [], timer: null };
+    messageGroups[contact].messages.push(text);
+    if (messageGroups[contact].timer) clearTimeout(messageGroups[contact].timer);
 
-    if (messageGroups[groupKey].timer) clearTimeout(messageGroups[groupKey].timer);
-
-    // Si el mensaje tiene palabras clave urgentes, procesar en 5 seg en lugar de 30
     const delay = hasUrgentKeywords(text) ? 5000 : 30000;
 
-    messageGroups[groupKey].timer = setTimeout(async () => {
-      const msgs = messageGroups[groupKey].messages;
-      delete messageGroups[groupKey];
+    messageGroups[contact].timer = setTimeout(async () => {
+      const msgs = messageGroups[contact].messages;
+      delete messageGroups[contact];
 
       const analysis = await analyzeMessage(contact, msgs);
-
-      // Si tiene palabras urgentes y la IA dijo ignorar, igual capturar
       const forcedCapture = msgs.some(m => hasUrgentKeywords(m));
+
       if (analysis.priority === 'ignorar' && !forcedCapture) return;
       if (!analysis.needsAction && !forcedCapture) return;
 
-      // Si fue forzado por keywords, ajustar prioridad mínima a "hoy"
-      if (forcedCapture && (!analysis.needsAction || analysis.priority === 'ignorar')) {
+      if (forcedCapture && !analysis.needsAction) {
         analysis.needsAction = true;
-        analysis.priority = 'hoy';
+        analysis.priority = analysis.priority === 'ignorar' ? 'hoy' : analysis.priority;
         analysis.task = analysis.task || 'Responder mensaje importante';
       }
 
-      const existingIdx = tasks.findIndex(t => t.contact === contact);
-      const newTask = {
-        id: Date.now(),
-        contact,
-        preview: msgs[msgs.length - 1].slice(0, 80),
-        fullPreview: msgs.join(' | ').slice(0, 200),
-        msgCount: msgs.length,
-        task: analysis.task,
-        priority: analysis.priority || 'hoy',
-        urgent: analysis.urgent || analysis.priority === 'ahora',
-        category: analysis.category || 'personal',
-        meeting: analysis.meeting?.time ? analysis.meeting : null,
-        hours: 0,
-        createdAt: new Date(),
-      };
+      // Buscar si ya existe tarea pendiente del mismo contacto y actualizar
+      const existing = db.prepare(
+        "SELECT id FROM tasks WHERE contact = ? AND status = 'pending' LIMIT 1"
+      ).get(contact);
 
-      if (existingIdx >= 0) {
-        tasks[existingIdx] = newTask;
+      const meeting = analysis.meeting?.time ? analysis.meeting : null;
+
+      if (existing) {
+        db.prepare(`
+          UPDATE tasks SET
+            preview = ?, full_preview = ?, msg_count = ?,
+            task = ?, priority = ?, urgent = ?, category = ?,
+            meeting_date = ?, meeting_time = ?, meeting_location = ?,
+            created_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(
+          msgs[msgs.length-1].slice(0,80),
+          msgs.join(' | ').slice(0,200),
+          msgs.length,
+          analysis.task,
+          analysis.priority || 'hoy',
+          analysis.urgent ? 1 : 0,
+          analysis.category || 'personal',
+          meeting?.date || null,
+          meeting?.time || null,
+          meeting?.location || null,
+          existing.id
+        );
+        console.log(`[UPDATE][${analysis.priority}] ${contact}: ${analysis.task}`);
       } else {
-        tasks.push(newTask);
+        db.prepare(`
+          INSERT INTO tasks (contact, preview, full_preview, msg_count, task, priority, urgent, category, meeting_date, meeting_time, meeting_location)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          contact,
+          msgs[msgs.length-1].slice(0,80),
+          msgs.join(' | ').slice(0,200),
+          msgs.length,
+          analysis.task,
+          analysis.priority || 'hoy',
+          analysis.urgent ? 1 : 0,
+          analysis.category || 'personal',
+          meeting?.date || null,
+          meeting?.time || null,
+          meeting?.location || null
+        );
+        console.log(`[NEW][${analysis.priority}] ${contact}: ${analysis.task}`);
       }
-
-      const order = { ahora: 0, hoy: 1, semana: 2 };
-      tasks.sort((a, b) => (order[a.priority] ?? 2) - (order[b.priority] ?? 2));
-
-      console.log(`[${newTask.priority.toUpperCase()}][${newTask.category}] ${contact}: ${newTask.task}`);
     }, delay);
 
   } catch(e) {
-    console.error('Error:', e.message);
+    console.error('Error webhook:', e.message);
   }
 });
 
+// ─── API ─────────────────────────────────────────────────────────────────────
 app.get('/tasks', (req, res) => {
-  res.json(tasks.map(t => ({ ...t, hours: Math.floor((Date.now() - new Date(t.createdAt)) / 3600000) })));
+  const tasks = db.prepare(`
+    SELECT *, 
+      CAST((julianday('now') - julianday(created_at)) * 24 AS INTEGER) as hours
+    FROM tasks 
+    WHERE status = 'pending'
+    ORDER BY 
+      CASE priority WHEN 'ahora' THEN 0 WHEN 'hoy' THEN 1 ELSE 2 END,
+      created_at ASC
+  `).all();
+
+  res.json(tasks.map(t => ({
+    id: t.id,
+    contact: t.contact,
+    preview: t.preview,
+    fullPreview: t.full_preview,
+    msgCount: t.msg_count,
+    task: t.task,
+    priority: t.priority,
+    urgent: t.urgent === 1,
+    category: t.category,
+    meeting: t.meeting_time ? { date: t.meeting_date, time: t.meeting_time, location: t.meeting_location } : null,
+    hours: t.hours || 0,
+    createdAt: t.created_at,
+  })));
+});
+
+app.get('/history', (req, res) => {
+  const tasks = db.prepare(`
+    SELECT *, 
+      CAST((julianday('now') - julianday(created_at)) * 24 AS INTEGER) as hours
+    FROM tasks 
+    WHERE status = 'resolved'
+    ORDER BY resolved_at DESC
+    LIMIT 100
+  `).all();
+  res.json(tasks);
 });
 
 app.delete('/tasks/:id', (req, res) => {
-  tasks = tasks.filter(t => t.id != req.params.id);
+  db.prepare("UPDATE tasks SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP WHERE id = ?").run(req.params.id);
   res.sendStatus(200);
 });
 
 app.patch('/tasks/:id/snooze', (req, res) => {
-  const t = tasks.find(t => t.id == req.params.id);
-  if (t) { t.priority = 'semana'; t.urgent = false; }
+  db.prepare("UPDATE tasks SET priority = 'semana', urgent = 0 WHERE id = ?").run(req.params.id);
   res.sendStatus(200);
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', tasks: tasks.length }));
+app.get('/stats', (req, res) => {
+  const pending = db.prepare("SELECT priority, category, COUNT(*) as count FROM tasks WHERE status='pending' GROUP BY priority, category").all();
+  const resolved30d = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE status='resolved' AND resolved_at > datetime('now', '-30 days')").get();
+  res.json({ pending, resolved30d: resolved30d.count });
+});
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v2.1 en puerto', process.env.PORT || 3001));
+app.get('/health', (req, res) => {
+  const count = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
+  res.json({ status: 'ok', pendingTasks: count.n, pendingGroups: Object.keys(messageGroups).length });
+});
+
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v3 (SQLite) en puerto', process.env.PORT || 3001));
