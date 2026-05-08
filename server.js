@@ -14,12 +14,20 @@ app.use((req, res, next) => {
 });
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// Storage
 let tasks = [];
-let messageGroups = {}; // Agrupa mensajes por contacto
+let messageGroups = {};
 
-// ─── ANÁLISIS CON IA ──────────────────────────────────────────────────────────
+// Palabras clave que SIEMPRE deben capturarse sin importar la categoría
+const ALWAYS_CAPTURE = [
+  /cita|mañana|hoy|esta noche|esta tarde|nos vemos|te espero|a las|venís|vengo|paso a buscar/i,
+  /reunión|meeting|junta|llamada|llámame|llamame|urgente|importante/i,
+  /confirmá|confirmame|me avisás|me avisas|podés|podes/i,
+];
+
+function hasUrgentKeywords(text) {
+  return ALWAYS_CAPTURE.some(r => r.test(text));
+}
+
 async function analyzeMessage(contact, messages) {
   const msgText = Array.isArray(messages) ? messages.join(' | ') : messages;
   const now = new Date();
@@ -35,30 +43,31 @@ Hora actual: ${timeStr}
 CONTACTO: ${contact}
 MENSAJE(S): ${msgText}
 
-REGLAS DE CLASIFICACIÓN:
+REGLAS IMPORTANTES:
+- Si el mensaje menciona una cita, plan, encuentro, "mañana", "hoy", "nos vemos", hora concreta → SIEMPRE marcar needsAction:true
+- Si el mensaje hace una pregunta directa → needsAction:true
+- Si el contacto pide confirmación → needsAction:true
+- Solo ignorar: spam masivo, publicidad, venta de entradas a desconocidos, broadcasts
 
-CATEGORÍA (category):
-- "trabajo": el nombre contiene transtide/financiera/cliente/proveedor/obra/empresa/ing/arq/dr o el tema es laboral (pagos, facturas, reuniones, pedidos, cotizaciones, entregas)
-- "personal": amigos, familia, planes sociales, salidas
+CATEGORÍA:
+- "trabajo": nombre con transtide/financiera/cliente/proveedor/obra o tema laboral
+- "personal": pareja, amigos, familia, planes sociales
 
-PRIORIDAD (priority):
-- "ahora": reuniones/pagos/confirmaciones con hora concreta hoy, cosas que si no respondés perdés plata u oportunidad
-- "hoy": clientes esperando, presupuestos pendientes, coordinaciones del día
-- "semana": amigos, planes futuros, cosas que pueden esperar unos días
-- "info": mensajes informativos que no requieren respuesta
-- "ignorar": spam, publicidad, venta de entradas, grupos de fiestas, broadcasts
+PRIORIDAD:
+- "ahora": reuniones/pagos hoy con hora concreta, cosas urgentes de trabajo
+- "hoy": necesita respuesta hoy, cita o plan para mañana/esta semana que confirmaste
+- "semana": planes futuros, cosas sin urgencia inmediata
+- "ignorar": spam, publicidad, broadcasts masivos
 
-DETECCIÓN DE REUNIONES:
-Si el mensaje menciona una reunión, extraé fecha y hora.
+DETECTAR REUNIÓN: si hay fecha/hora/lugar extraé los datos.
 
-Respondé SOLO en JSON válido:
+Respondé SOLO en JSON:
 {
   "needsAction": true/false,
-  "priority": "ahora|hoy|semana|info|ignorar",
+  "priority": "ahora|hoy|semana|ignorar",
   "category": "trabajo|personal",
   "task": "qué tengo que hacer en máximo 8 palabras",
-  "meeting": { "date": "fecha si hay", "time": "hora si hay", "location": "lugar si hay" } o null,
-  "groupSummary": "resumen si hay múltiples mensajes del mismo tema",
+  "meeting": { "date": "fecha", "time": "hora", "location": "lugar" } o null,
   "urgent": true/false
 }`
     }],
@@ -74,9 +83,8 @@ Respondé SOLO en JSON válido:
   }
 }
 
-// ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
-  res.sendStatus(200); // Responder rápido a WAHA
+  res.sendStatus(200);
 
   try {
     const { event, payload } = req.body;
@@ -86,38 +94,40 @@ app.post('/webhook', async (req, res) => {
     const text = payload.body || '';
     const contact = payload._data?.notifyName || payload.from || '';
 
-    // Ignorar broadcasts y IDs técnicos sin nombre
     if (contact === 'status@broadcast') return;
-    if (!payload._data?.notifyName && contact.includes('@')) return;
+    if (!payload._data?.notifyName && contact.includes('@g.us')) return;
     if (!text || text.length < 3) return;
 
-    // Agrupar mensajes del mismo contacto (ventana de 5 minutos)
-    const now = Date.now();
     const groupKey = contact;
-    
     if (!messageGroups[groupKey]) {
-      messageGroups[groupKey] = { messages: [], timer: null, firstTime: now };
+      messageGroups[groupKey] = { messages: [], timer: null };
     }
-    
     messageGroups[groupKey].messages.push(text);
-    
-    // Limpiar timer anterior
-    if (messageGroups[groupKey].timer) {
-      clearTimeout(messageGroups[groupKey].timer);
-    }
-    
-    // Procesar después de 30 segundos de silencio (agrupar ráfagas)
+
+    if (messageGroups[groupKey].timer) clearTimeout(messageGroups[groupKey].timer);
+
+    // Si el mensaje tiene palabras clave urgentes, procesar en 5 seg en lugar de 30
+    const delay = hasUrgentKeywords(text) ? 5000 : 30000;
+
     messageGroups[groupKey].timer = setTimeout(async () => {
       const msgs = messageGroups[groupKey].messages;
       delete messageGroups[groupKey];
-      
+
       const analysis = await analyzeMessage(contact, msgs);
-      
-      if (analysis.priority === 'ignorar' || !analysis.needsAction) return;
-      
-      // Buscar si ya existe tarea del mismo contacto y reemplazar
-      const existingIdx = tasks.findIndex(t => t.contact === contact && t.priority !== 'info');
-      
+
+      // Si tiene palabras urgentes y la IA dijo ignorar, igual capturar
+      const forcedCapture = msgs.some(m => hasUrgentKeywords(m));
+      if (analysis.priority === 'ignorar' && !forcedCapture) return;
+      if (!analysis.needsAction && !forcedCapture) return;
+
+      // Si fue forzado por keywords, ajustar prioridad mínima a "hoy"
+      if (forcedCapture && (!analysis.needsAction || analysis.priority === 'ignorar')) {
+        analysis.needsAction = true;
+        analysis.priority = 'hoy';
+        analysis.task = analysis.task || 'Responder mensaje importante';
+      }
+
+      const existingIdx = tasks.findIndex(t => t.contact === contact);
       const newTask = {
         id: Date.now(),
         contact,
@@ -128,36 +138,30 @@ app.post('/webhook', async (req, res) => {
         priority: analysis.priority || 'hoy',
         urgent: analysis.urgent || analysis.priority === 'ahora',
         category: analysis.category || 'personal',
-        meeting: analysis.meeting || null,
+        meeting: analysis.meeting?.time ? analysis.meeting : null,
         hours: 0,
         createdAt: new Date(),
       };
-      
+
       if (existingIdx >= 0) {
         tasks[existingIdx] = newTask;
       } else {
         tasks.push(newTask);
       }
-      
-      // Ordenar por prioridad
-      const order = { ahora: 0, hoy: 1, semana: 2, info: 3 };
-      tasks.sort((a,b) => (order[a.priority]||2) - (order[b.priority]||2));
-      
+
+      const order = { ahora: 0, hoy: 1, semana: 2 };
+      tasks.sort((a, b) => (order[a.priority] ?? 2) - (order[b.priority] ?? 2));
+
       console.log(`[${newTask.priority.toUpperCase()}][${newTask.category}] ${contact}: ${newTask.task}`);
-    }, 30000); // 30 segundos de ventana
+    }, delay);
 
   } catch(e) {
-    console.error('Error webhook:', e.message);
+    console.error('Error:', e.message);
   }
 });
 
-// ─── API ──────────────────────────────────────────────────────────────────────
 app.get('/tasks', (req, res) => {
-  const withHours = tasks.map(t => ({
-    ...t,
-    hours: Math.floor((Date.now() - new Date(t.createdAt)) / 3600000),
-  }));
-  res.json(withHours);
+  res.json(tasks.map(t => ({ ...t, hours: Math.floor((Date.now() - new Date(t.createdAt)) / 3600000) })));
 });
 
 app.delete('/tasks/:id', (req, res) => {
@@ -166,28 +170,11 @@ app.delete('/tasks/:id', (req, res) => {
 });
 
 app.patch('/tasks/:id/snooze', (req, res) => {
-  const task = tasks.find(t => t.id == req.params.id);
-  if (task) {
-    task.priority = 'semana';
-    task.urgent = false;
-  }
+  const t = tasks.find(t => t.id == req.params.id);
+  if (t) { t.priority = 'semana'; t.urgent = false; }
   res.sendStatus(200);
 });
 
-app.get('/stats', (req, res) => {
-  res.json({
-    total: tasks.length,
-    ahora: tasks.filter(t=>t.priority==='ahora').length,
-    hoy: tasks.filter(t=>t.priority==='hoy').length,
-    semana: tasks.filter(t=>t.priority==='semana').length,
-    trabajo: tasks.filter(t=>t.category==='trabajo').length,
-    personal: tasks.filter(t=>t.category==='personal').length,
-    meetings: tasks.filter(t=>t.meeting).length,
-  });
-});
+app.get('/health', (req, res) => res.json({ status: 'ok', tasks: tasks.length }));
 
-app.get('/health', (req, res) => res.json({ status: 'ok', tasks: tasks.length, pending: Object.keys(messageGroups).length }));
-
-app.listen(process.env.PORT || 3001, () => {
-  console.log('PendienteAI v2 corriendo en puerto', process.env.PORT || 3001);
-});
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v2.1 en puerto', process.env.PORT || 3001));
