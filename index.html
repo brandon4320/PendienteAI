@@ -17,21 +17,34 @@
   --red:#dc2626;--red-bg:#fef2f2;--red-b:#fecaca;
   --amber:#d97706;--amber-bg:#fffbeb;--amber-b:#fde68a;
   --blue:#2563eb;--blue-bg:#eff6ff;--blue-b:#bfdbfe;
-  --purple:#7c3aed;--purple-bg:#f5f3ff;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;--purple-b:#ddd6fe;
+  --slate:#64748b;--slate-bg:#f8fafc;
   --font:'Inter',sans-serif;--mono:'DM Mono',monospace;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 .app{width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* HEADER */
 .hdr{padding:max(env(safe-area-inset-top),16px) 20px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
-.hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px}
 .logo{font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
 .logo span{color:var(--green)}
 .badge{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:breathe 2s ease-in-out infinite}
 .dot.off{background:var(--red);animation:none}
 @keyframes breathe{0%,100%{opacity:1}50%{opacity:0.6}}
+
+/* BANDEJA TABS */
+.bandeja-tabs{display:flex;gap:0;border-bottom:1px solid var(--border)}
+.bt{flex:1;padding:10px 8px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.15s;background:transparent;border-top:none;border-left:none;border-right:none}
+.bt.active{color:var(--text);border-bottom-color:var(--green)}
+.bt.active.sin{border-bottom-color:var(--purple)}
+.bt-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:700;margin-left:5px;background:var(--red);color:white}
+.bt-badge.purple{background:var(--purple)}
+
+/* PRIORITY TABS */
 .prio-grid{display:grid;grid-template-columns:repeat(4,1fr);flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
-.pc{padding:12px 8px;text-align:center;cursor:pointer;border-right:1px solid var(--border);position:relative}
+.pc{padding:10px 8px;text-align:center;cursor:pointer;border-right:1px solid var(--border);position:relative}
 .pc:last-child{border-right:none}
 .pc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;transition:background 0.15s}
 .pc.active.p-ahora::after{background:var(--red)}
@@ -42,37 +55,47 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .pc.active.p-hoy .pn{color:var(--amber)}
 .pc.active.p-semana .pn{color:var(--blue)}
 .pc.active.p-all .pn{color:var(--green)}
-.pn{font-size:22px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--muted2)}
+.pn{font-size:20px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--muted2)}
 .pl{font-size:9px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-top:3px}
-.toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
 .pills{display:flex;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none}
 .pills::-webkit-scrollbar{display:none}
-.pill{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:20px;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
+.pill{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;border-radius:20px;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
 .pill.active{background:var(--text);border-color:var(--text);color:white}
 .pill.work.active{background:var(--blue);border-color:var(--blue);color:white}
 .pill.pers.active{background:var(--green);border-color:var(--green);color:white}
-.pill.meet.active{background:var(--purple);border-color:var(--purple);color:white}
-.btn-refresh{flex-shrink:0;padding:8px 14px;background:var(--green);border:none;border-radius:10px;color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px}
+.btn-refresh{flex-shrink:0;padding:7px 12px;background:var(--green);border:none;border-radius:10px;color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px}
 .btn-refresh:active{opacity:0.85}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.content{flex:1;overflow-y:auto;padding:12px 16px 32px;background:var(--bg)}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:10px 16px 32px;background:var(--bg)}
 .sec{display:flex;align-items:center;gap:8px;padding:8px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
 .sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* CARDS — PENDIENTE */
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;overflow:hidden;cursor:pointer;animation:si 0.2s ease forwards;opacity:0;transform:translateY(4px);box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 @keyframes si{to{opacity:1;transform:translateY(0)}}
 .card.c-ahora{border-left:3px solid var(--red)}
 .card.c-hoy{border-left:3px solid var(--amber)}
 .card.c-semana{border-left:3px solid var(--blue)}
 .card.c-personal{border-left:3px solid var(--green)}
+/* CARDS — SIN RESPONDER */
+.card.sin-card{border-left:3px solid var(--purple);background:var(--card)}
+
 .card-top{display:flex;align-items:flex-start;gap:12px;padding:13px 14px}
 .av{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;font-family:var(--mono);position:relative}
 .av-ahora{background:var(--red-bg);color:var(--red)}
 .av-hoy{background:var(--amber-bg);color:var(--amber)}
 .av-trabajo{background:var(--blue-bg);color:var(--blue)}
 .av-personal{background:var(--green-bg);color:var(--green)}
+.av-sin{background:var(--purple-bg);color:var(--purple)}
 .av-pin{position:absolute;bottom:-3px;right:-3px;width:15px;height:15px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:8px}
-.pin-red{background:var(--red)}.pin-blue{background:var(--blue)}.pin-green{background:var(--green)}.pin-amber{background:var(--amber)}
+.pin-red{background:var(--red)}.pin-blue{background:var(--blue)}.pin-green{background:var(--green)}.pin-amber{background:var(--amber)}.pin-purple{background:var(--purple)}
+
 .cb{flex:1;min-width:0}
 .ct{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
 .cn{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
@@ -84,17 +107,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tp-semana{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
 .tp-personal{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
 .tp-trabajo{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
-.meeting-pill{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:4px 10px;background:var(--purple-bg);border:1px solid #ddd6fe;border-radius:8px;font-family:var(--mono);font-size:10px;color:var(--purple)}
+.tp-sin{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
+.meeting-pill{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:4px 10px;background:var(--purple-bg);border:1px solid var(--purple-b);border-radius:8px;font-family:var(--mono);font-size:10px;color:var(--purple)}
+
 .card-detail{border-top:1px solid var(--border);padding:13px 14px;background:var(--card2);display:none}
 .card-detail.open{display:block}
 .dl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px}
 .dtask{font-size:14px;font-weight:600;line-height:1.5;color:var(--text);margin-bottom:12px;padding:10px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border)}
-.dactions{display:flex;gap:8px}
+.dactions{display:flex;gap:7px}
 .btn-resolve{flex:1;padding:11px;background:var(--green);border:none;color:white;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
-.btn-snooze{padding:11px 14px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
-.btn-del{padding:11px 14px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-keep{flex:1;padding:11px;background:var(--amber-bg);border:1px solid var(--amber-b);color:var(--amber);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-snooze{padding:11px 12px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-del{padding:11px 12px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+
 .card.dismissing{animation:dismissOut 0.3s ease forwards}
 @keyframes dismissOut{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
+
 .empty{text-align:center;padding:50px 20px}
 .empty-icon{font-size:44px;margin-bottom:12px}
 .empty-title{font-size:17px;font-weight:700;color:var(--text)}
@@ -109,82 +137,143 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </head>
 <body>
 <div class="app">
+  <!-- HEADER -->
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">Pendiente<span>AI</span></div>
       <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
     </div>
+    <!-- BANDEJAS -->
+    <div class="bandeja-tabs">
+      <button class="bt active" onclick="setBandeja('pendiente',this)">
+        📥 Pendientes <span class="bt-badge" id="badge-pendiente">0</span>
+      </button>
+      <button class="bt sin" onclick="setBandeja('sin_responder',this)">
+        👁️ Sin responder <span class="bt-badge purple" id="badge-sin">0</span>
+      </button>
+    </div>
   </div>
-  <div class="prio-grid">
+
+  <!-- PRIORITY GRID -->
+  <div class="prio-grid" id="prio-grid">
     <div class="pc p-ahora active" onclick="setFilter('ahora',this)"><div class="pn" id="n-ahora">-</div><div class="pl">⚡ Ahora</div></div>
     <div class="pc p-hoy" onclick="setFilter('hoy',this)"><div class="pn" id="n-hoy">-</div><div class="pl">📅 Hoy</div></div>
     <div class="pc p-semana" onclick="setFilter('semana',this)"><div class="pn" id="n-semana">-</div><div class="pl">📆 Semana</div></div>
     <div class="pc p-all" onclick="setFilter('all',this)"><div class="pn" id="n-all">-</div><div class="pl">📋 Total</div></div>
   </div>
+
+  <!-- TOOLBAR -->
   <div class="toolbar">
     <div class="pills">
       <button class="pill active" onclick="setCat('all',this)">Todos</button>
       <button class="pill work" onclick="setCat('trabajo',this)">💼 Trabajo</button>
       <button class="pill pers" onclick="setCat('personal',this)">👥 Personal</button>
-      <button class="pill meet" onclick="setCat('meeting',this)">📍 Reuniones</button>
     </div>
-    <button class="btn-refresh" id="scanBtn" onclick="loadTasks()">
+    <button class="btn-refresh" id="scanBtn" onclick="loadAll()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
       Actualizar
     </button>
   </div>
+
   <div class="content" id="content">
     <div class="loading"><div class="spinner"></div><div class="lt">Cargando...</div></div>
   </div>
 </div>
 <div class="toast" id="toast"><span id="toastText"></span></div>
+
 <script>
 const API='https://pendiente.transtidefreight.com';
-let tasks=[],expanded=null,filter='ahora',catFilter='all';
+let tasksPendiente=[],tasksSin=[],expanded=null,filter='ahora',catFilter='all',bandeja='pendiente';
 
 let tt;
 function toast(t){const el=document.getElementById('toast');document.getElementById('toastText').textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2500);}
 function setConn(ok){document.getElementById('dot').className='dot'+(ok?'':' off');document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';}
 
+function setBandeja(b,btn){
+  bandeja=b;expanded=null;
+  document.querySelectorAll('.bt').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  // Ocultar/mostrar prioridades en sin_responder
+  document.getElementById('prio-grid').style.display=b==='sin_responder'?'none':'grid';
+  renderTasks();
+}
+
 function setFilter(f,btn){filter=f;document.querySelectorAll('.pc').forEach(c=>c.classList.remove('active'));btn.classList.add('active');renderTasks();}
 function setCat(c,btn){catFilter=c;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');renderTasks();}
 
-async function loadTasks(){
+async function loadAll(){
   const btn=document.getElementById('scanBtn');
   btn.innerHTML='<svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
   try{
-    const r=await fetch(API+'/tasks');
-    if(!r.ok) throw new Error('Error '+r.status);
-    tasks=await r.json();
-    setConn(true);renderStats();renderTasks();
-    toast('✅ '+tasks.length+' pendientes');
+    const [r1,r2]=await Promise.all([
+      fetch(API+'/tasks?type=pendiente'),
+      fetch(API+'/tasks?type=sin_responder')
+    ]);
+    tasksPendiente=await r1.json();
+    tasksSin=await r2.json();
+    setConn(true);
+    document.getElementById('badge-pendiente').textContent=tasksPendiente.length;
+    document.getElementById('badge-sin').textContent=tasksSin.length;
+    renderStats();renderTasks();
+    if(tasksPendiente.length+tasksSin.length>0) toast('✅ '+(tasksPendiente.length+tasksSin.length)+' total');
   }catch(e){
     setConn(false);
-    document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small style="opacity:0.7">'+e.message+'</small></div>';
+    document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+e.message+'</small></div>';
   }finally{
     btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
   }
 }
 
-async function delTask(id){try{await fetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}tasks=tasks.filter(t=>t.id!=id);renderStats();renderTasks();}
-async function snooze(id){try{await fetch(API+'/tasks/'+id+'/snooze',{method:'PATCH'});}catch(e){}const t=tasks.find(t=>t.id==id);if(t){t.priority='semana';t.urgent=false;}renderStats();renderTasks();toast('😴 Postergado para la semana');}
+async function delTask(id){
+  try{await fetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}
+  tasksPendiente=tasksPendiente.filter(t=>t.id!=id);
+  tasksSin=tasksSin.filter(t=>t.id!=id);
+  document.getElementById('badge-pendiente').textContent=tasksPendiente.length;
+  document.getElementById('badge-sin').textContent=tasksSin.length;
+  renderStats();renderTasks();
+}
+
+async function keepTask(id){
+  // Mover de sin_responder a pendiente
+  try{await fetch(API+'/tasks/'+id+'/keep',{method:'PATCH'});}catch(e){}
+  const t=tasksSin.find(x=>x.id==id);
+  if(t){t.type='pendiente';tasksPendiente.push(t);tasksSin=tasksSin.filter(x=>x.id!=id);}
+  document.getElementById('badge-pendiente').textContent=tasksPendiente.length;
+  document.getElementById('badge-sin').textContent=tasksSin.length;
+  renderStats();renderTasks();
+  toast('📥 Movido a Pendientes');
+}
+
+async function snooze(id){
+  try{await fetch(API+'/tasks/'+id+'/snooze',{method:'PATCH'});}catch(e){}
+  const t=[...tasksPendiente,...tasksSin].find(x=>x.id==id);
+  if(t){t.priority='semana';t.urgent=false;}
+  renderStats();renderTasks();toast('😴 Postergado para la semana');
+}
 
 function ini(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function hrs(h){if(h<1)return'ahora';if(h<24)return h+'h';return Math.floor(h/24)+'d';}
 
 function renderStats(){
+  const tasks=tasksPendiente;
   document.getElementById('n-ahora').textContent=tasks.filter(t=>t.priority==='ahora').length;
   document.getElementById('n-hoy').textContent=tasks.filter(t=>t.priority==='hoy').length;
   document.getElementById('n-semana').textContent=tasks.filter(t=>t.priority==='semana').length;
   document.getElementById('n-all').textContent=tasks.length;
 }
 
-function getFiltered(){
-  let t=[...tasks];
+function getFilteredPendiente(){
+  let t=[...tasksPendiente];
   if(filter!=='all') t=t.filter(x=>x.priority===filter);
   if(catFilter==='trabajo') t=t.filter(x=>x.category==='trabajo');
   else if(catFilter==='personal') t=t.filter(x=>x.category==='personal');
-  else if(catFilter==='meeting') t=t.filter(x=>x.meeting);
+  return t;
+}
+
+function getFilteredSin(){
+  let t=[...tasksSin];
+  if(catFilter==='trabajo') t=t.filter(x=>x.category==='trabajo');
+  else if(catFilter==='personal') t=t.filter(x=>x.category==='personal');
   return t;
 }
 
@@ -196,7 +285,21 @@ const PCONF={
 
 function renderTasks(){
   const el=document.getElementById('content');
-  const filtered=getFiltered();
+
+  if(bandeja==='sin_responder'){
+    const filtered=getFilteredSin();
+    if(!filtered.length){
+      el.innerHTML='<div class="empty"><div class="empty-icon">👁️</div><div class="empty-title">Todo respondido 🎉</div><div class="empty-sub">No tenés mensajes sin responder</div></div>';
+      return;
+    }
+    let html='<div class="sec">👁️ Sin responder · '+filtered.length+'</div>';
+    filtered.forEach((m,i)=>{html+=sinCard(m,i*35);});
+    el.innerHTML=html;
+    return;
+  }
+
+  // PENDIENTE
+  const filtered=getFilteredPendiente();
   if(!filtered.length){
     const msgs={ahora:'Sin urgentes 🎉',hoy:'Estás al día 👍',semana:'Nada esta semana',all:'Bandeja vacía ✅'};
     el.innerHTML='<div class="empty"><div class="empty-icon">'+(filter==='ahora'?'⚡':filter==='hoy'?'📅':filter==='semana'?'📆':'✅')+'</div><div class="empty-title">'+(msgs[filter]||msgs.all)+'</div><div class="empty-sub">Los mensajes nuevos aparecen aquí automáticamente</div></div>';
@@ -209,12 +312,12 @@ function renderTasks(){
     const items=groups[p];if(!items.length)return;
     const cfg=PCONF[p];
     html+='<div class="sec">'+cfg.emoji+' '+cfg.label+' <span style="opacity:0.5;margin-left:2px">'+items.length+'</span></div>';
-    items.forEach((m,i)=>{html+=cardHTML(m,i*35,cfg);});
+    items.forEach((m,i)=>{html+=pendCard(m,i*35,cfg);});
   });
   el.innerHTML=html;
 }
 
-function cardHTML(m,delay,cfg){
+function pendCard(m,delay,cfg){
   const isOpen=expanded===m.id;
   const init=ini(m.contact);
   const cat=m.category||'personal';
@@ -242,7 +345,31 @@ function cardHTML(m,delay,cfg){
     '<div class="dtask">'+m.task+'</div>'+
     '<div class="dactions">'+
     '<button class="btn-resolve" onclick="resolve('+m.id+')">✅ Resuelto</button>'+
-    '<button class="btn-snooze" onclick="snooze('+m.id+')">😴 Semana</button>'+
+    '<button class="btn-snooze" onclick="snooze('+m.id+')">😴</button>'+
+    '<button class="btn-del" onclick="resolve('+m.id+')">🗑</button>'+
+    '</div></div></div>';
+}
+
+function sinCard(m,delay){
+  const isOpen=expanded===m.id;
+  const init=ini(m.contact);
+  const cat=m.category||'personal';
+  const isWork=cat==='trabajo';
+  const catEmoji=isWork?'💼':'👥';
+  return '<div class="card sin-card" id="card-'+m.id+'" onclick="toggle('+m.id+')" style="animation-delay:'+delay+'ms">'+
+    '<div class="card-top">'+
+    '<div class="av av-sin">'+init+'<div class="av-pin pin-purple">'+catEmoji+'</div></div>'+
+    '<div class="cb">'+
+    '<div class="ct"><span class="cn">'+m.contact+'</span><span class="ctime">'+hrs(m.hours||0)+'</span></div>'+
+    '<div class="cprev">'+m.preview+'</div>'+
+    '<div class="task-pill tp-sin">👁️ No respondiste</div>'+
+    '</div></div>'+
+    '<div class="card-detail '+(isOpen?'open':'')+'" id="detail-'+m.id+'" onclick="event.stopPropagation()">'+
+    '<div class="dl">'+catEmoji+' '+cat.toUpperCase()+' · Sin respuesta tuya</div>'+
+    '<div class="dtask">"'+m.preview+'"</div>'+
+    '<div class="dactions">'+
+    '<button class="btn-keep" onclick="keepTask('+m.id+')">📥 Es pendiente</button>'+
+    '<button class="btn-resolve" onclick="resolve('+m.id+')">✅ Ya respondí</button>'+
     '<button class="btn-del" onclick="resolve('+m.id+')">🗑</button>'+
     '</div></div></div>';
 }
@@ -250,8 +377,8 @@ function cardHTML(m,delay,cfg){
 function toggle(id){expanded=expanded===id?null:id;renderTasks();setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
 function resolve(id){const c=document.getElementById('card-'+id);if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}}
 
-setInterval(loadTasks,60000);
-loadTasks();
+setInterval(loadAll,60000);
+loadAll();
 </script>
 </body>
 </html>
