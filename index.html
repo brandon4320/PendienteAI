@@ -3,296 +3,390 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>PendienteAI</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bricolage+Grotesque:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #080c0a; --surface: #0f1410; --surface2: #161d17; --surface3: #1d261e;
-    --border: #1e271f; --border2: #253028; --text: #e8f0e9;
-    --muted: #3d4f3e; --muted2: #6b7d6c;
-    --accent: #25d366; --accent-dim: rgba(37,211,102,0.1);
-    --red: #ff5c5c; --red-dim: rgba(255,92,92,0.08); --red-border: rgba(255,92,92,0.2);
-    --blue: #4a9eff; --blue-dim: rgba(74,158,255,0.08); --blue-border: rgba(74,158,255,0.2);
-    --font: 'Bricolage Grotesque', sans-serif; --mono: 'DM Mono', monospace;
-  }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; overflow: hidden; }
-  .app { max-width: 430px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 4px; flex-shrink: 0; }
-  .header { padding: 4px 20px 0; flex-shrink: 0; }
-  .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-  .app-name { font-size: 26px; font-weight: 800; letter-spacing: -1px; background: linear-gradient(135deg, #e8f0e9, #25d366); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .conn-badge { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface); font-family: var(--mono); font-size: 10px; }
-  .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: breathe 2s ease-in-out infinite; }
-  .conn-dot.off { background: var(--red); animation: none; }
-  @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  .header-sub { font-family: var(--mono); font-size: 10px; color: var(--muted2); }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c0a;--s1:#0f1410;--s2:#161d17;--s3:#1d261e;
+  --b1:#1e271f;--b2:#253028;--text:#e8f0e9;--m1:#3d4f3e;--m2:#6b7d6c;
+  --green:#25d366;--green-d:rgba(37,211,102,0.1);
+  --red:#ff5c5c;--red-d:rgba(255,92,92,0.08);--red-b:rgba(255,92,92,0.2);
+  --amber:#f59e0b;--amber-d:rgba(245,158,11,0.08);--amber-b:rgba(245,158,11,0.2);
+  --blue:#4a9eff;--blue-d:rgba(74,158,255,0.08);--blue-b:rgba(74,158,255,0.2);
+  --font:'Bricolage Grotesque',sans-serif;--mono:'DM Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
+.app{max-width:430px;margin:0 auto;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
-  /* STATS */
-  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; padding: 12px 20px 0; flex-shrink: 0; }
-  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 8px; text-align: center; }
-  .stat-n { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
-  .stat-n-red { color: var(--red); }
-  .stat-n-green { color: var(--accent); }
-  .stat-n-blue { color: var(--blue); }
-  .stat-label { font-family: var(--mono); font-size: 8px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+/* STATUS BAR */
+.sb{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 4px;flex-shrink:0}
 
-  /* FILTER TABS */
-  .filter-tabs { display: flex; padding: 10px 20px 0; gap: 6px; flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
-  .filter-tabs::-webkit-scrollbar { display: none; }
-  .filter-tab { padding: 7px 14px; background: transparent; border: 1px solid var(--border); color: var(--muted2); font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 20px; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
-  .filter-tab.active { background: var(--surface2); border-color: var(--border2); color: var(--text); }
-  .filter-tab.trabajo.active { background: rgba(74,158,255,0.1); border-color: var(--blue); color: var(--blue); }
-  .filter-tab.personal.active { background: rgba(37,211,102,0.1); border-color: var(--accent); color: var(--accent); }
-  .filter-tab.urgente.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+/* HEADER */
+.hdr{padding:2px 20px 0;flex-shrink:0}
+.hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1px}
+.logo{font-size:24px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#e8f0e9,#25d366);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--b2);background:var(--s1);font-family:var(--mono);font-size:10px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:breathe 2s ease-in-out infinite}
+.dot.off{background:var(--red);animation:none}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:0.4}}
+.sub{font-family:var(--mono);font-size:9px;color:var(--m2)}
 
-  /* SCAN */
-  .scan-area { padding: 10px 20px 0; flex-shrink: 0; }
-  .btn-scan { width: 100%; padding: 12px; background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.25); border-radius: 14px; color: var(--accent); font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
-  .btn-scan:active { transform: scale(0.98); }
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { to{transform:rotate(360deg)} }
+/* PRIORITY BARS */
+.prio-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 20px 0;flex-shrink:0}
+.prio-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative}
+.prio-card.active{transform:scale(1.03)}
+.prio-card.p-ahora{border-color:var(--red-b)}
+.prio-card.p-ahora.active{background:var(--red-d)}
+.prio-card.p-hoy{border-color:var(--amber-b)}
+.prio-card.p-hoy.active{background:var(--amber-d)}
+.prio-card.p-semana{border-color:var(--blue-b)}
+.prio-card.p-semana.active{background:var(--blue-d)}
+.prio-card.p-all.active{background:var(--s2);border-color:var(--b2)}
+.prio-n{font-size:22px;font-weight:800;line-height:1;letter-spacing:-1px}
+.prio-n.red{color:var(--red)}
+.prio-n.amber{color:var(--amber)}
+.prio-n.blue{color:var(--blue)}
+.prio-n.white{color:var(--text)}
+.prio-label{font-family:var(--mono);font-size:8px;color:var(--m2);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px}
 
-  /* CONTENT */
-  .content { flex: 1; overflow-y: auto; padding: 10px 20px 80px; scrollbar-width: none; }
-  .content::-webkit-scrollbar { display: none; }
-  .section-title { display: flex; align-items: center; gap: 8px; padding: 10px 0 6px; font-family: var(--mono); font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; }
-  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+/* FILTER PILLS */
+.pills{display:flex;padding:8px 20px 0;gap:6px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.pills::-webkit-scrollbar{display:none}
+.pill{padding:6px 14px;background:transparent;border:1px solid var(--b1);color:var(--m2);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;transition:all 0.2s;white-space:nowrap;flex-shrink:0}
+.pill.active{background:var(--s2);border-color:var(--b2);color:var(--text)}
+.pill.work.active{background:var(--blue-d);border-color:var(--blue-b);color:var(--blue)}
+.pill.pers.active{background:var(--green-d);border-color:rgba(37,211,102,0.2);color:var(--green)}
 
-  /* CARDS */
-  .msg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; margin-bottom: 8px; overflow: hidden; cursor: pointer; animation: slideIn 0.3s ease forwards; opacity: 0; transform: translateY(8px); }
-  @keyframes slideIn { to{opacity:1;transform:translateY(0)} }
-  .msg-card.urgent { border-color: var(--red-border); background: var(--red-dim); }
-  .msg-card.trabajo { border-color: var(--blue-border); }
-  .msg-main { display: flex; align-items: flex-start; gap: 12px; padding: 14px; }
-  .avatar { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; font-family: var(--mono); position: relative; }
-  .avatar-urgent { background: rgba(255,92,92,0.15); border: 1px solid rgba(255,92,92,0.25); color: var(--red); }
-  .avatar-trabajo { background: rgba(74,158,255,0.15); border: 1px solid rgba(74,158,255,0.25); color: var(--blue); }
-  .avatar-personal { background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
-  .avatar-badge { position: absolute; bottom: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: 700; }
-  .cat-badge { position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; font-size: 8px; }
-  .cat-trabajo { background: var(--blue); }
-  .cat-personal { background: var(--accent); }
-  .msg-body { flex: 1; min-width: 0; }
-  .msg-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
-  .msg-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
-  .msg-time { font-family: var(--mono); font-size: 10px; color: var(--muted2); flex-shrink: 0; margin-left: 8px; }
-  .msg-preview { font-size: 12px; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .task-chip { margin-top: 7px; display: flex; align-items: flex-start; gap: 6px; border-radius: 8px; padding: 6px 9px; }
-  .task-chip-urgent { background: rgba(255,92,92,0.07); border: 1px solid rgba(255,92,92,0.15); }
-  .task-chip-trabajo { background: rgba(74,158,255,0.07); border: 1px solid rgba(74,158,255,0.15); }
-  .task-chip-personal { background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.15); }
-  .task-text-urgent { font-size: 12px; font-weight: 600; color: #ff8080; line-height: 1.4; }
-  .task-text-trabajo { font-size: 12px; font-weight: 600; color: #7ab8ff; line-height: 1.4; }
-  .task-text-personal { font-size: 12px; font-weight: 600; color: #80e8a0; line-height: 1.4; }
-  .urgent-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; margin-top: 3px; animation: breathe 1.5s ease-in-out infinite; }
-  .card-detail { border-top: 1px solid var(--border); padding: 14px; display: none; }
-  .card-detail.open { display: block; }
-  .detail-label { font-family: var(--mono); font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-  .detail-task { font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); margin-bottom: 12px; padding: 10px 12px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border2); }
-  .detail-actions { display: flex; gap: 8px; }
-  .btn-wa { flex: 1; padding: 12px; background: var(--accent-dim); border: 1px solid rgba(37,211,102,0.3); color: var(--accent); border-radius: 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; }
-  .btn-done { padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border2); color: var(--muted2); border-radius: 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; }
-  .msg-card.dismissing { animation: dismissOut 0.3s ease forwards; }
-  @keyframes dismissOut { to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0} }
-  .empty { text-align: center; padding: 50px 20px; color: var(--muted2); }
-  .empty-emoji { font-size: 40px; margin-bottom: 10px; }
-  .empty-title { font-size: 16px; font-weight: 700; color: var(--text); }
-  .empty-sub { font-size: 12px; margin-top: 6px; line-height: 1.6; }
-  .loading { text-align: center; padding: 50px 20px; }
-  .loading-spinner { width: 28px; height: 28px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px; }
-  .loading-text { font-family: var(--mono); font-size: 11px; color: var(--muted2); }
-  .error-box { margin: 16px 0; padding: 14px; background: var(--red-dim); border: 1px solid var(--red-border); border-radius: 14px; font-size: 13px; color: var(--red); text-align: center; line-height: 1.5; }
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface2); border: 1px solid var(--accent); border-radius: 14px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+/* SCAN BTN */
+.scan-row{padding:8px 20px 0;flex-shrink:0}
+.btn-scan{width:100%;padding:11px;background:var(--green-d);border:1px solid rgba(37,211,102,0.2);border-radius:14px;color:var(--green);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.2s}
+.btn-scan:active{transform:scale(0.98)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:8px 20px 80px;scrollbar-width:none}
+.content::-webkit-scrollbar{display:none}
+
+/* SECTION */
+.sec-hdr{display:flex;align-items:center;gap:8px;padding:10px 0 5px;font-family:var(--mono);font-size:9px;color:var(--m2);text-transform:uppercase;letter-spacing:0.8px}
+.sec-hdr::after{content:'';flex:1;height:1px;background:var(--b1)}
+
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:16px;margin-bottom:7px;overflow:hidden;cursor:pointer;animation:si 0.25s ease forwards;opacity:0;transform:translateY(6px)}
+@keyframes si{to{opacity:1;transform:translateY(0)}}
+.card.ahora{border-color:var(--red-b);background:var(--red-d)}
+.card.hoy{border-color:var(--amber-b)}
+.card.trabajo-card{border-left:3px solid var(--blue)}
+.card.personal-card{border-left:3px solid var(--green)}
+
+.card-main{display:flex;align-items:flex-start;gap:11px;padding:13px}
+.av{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;font-family:var(--mono);position:relative}
+.av-ahora{background:rgba(255,92,92,0.15);border:1px solid var(--red-b);color:var(--red)}
+.av-hoy{background:rgba(245,158,11,0.15);border:1px solid var(--amber-b);color:var(--amber)}
+.av-trabajo{background:var(--blue-d);border:1px solid var(--blue-b);color:var(--blue)}
+.av-personal{background:var(--s3);border:1px solid var(--b2);color:var(--m2)}
+.av-badge{position:absolute;bottom:-3px;right:-3px;width:13px;height:13px;border-radius:50%;border:2px solid var(--s1);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700}
+.av-badge.red{background:var(--red);color:white}
+.av-badge.blue{background:var(--blue);color:white}
+.av-badge.green{background:var(--green);color:#000}
+
+.cb{flex:1;min-width:0}
+.ct{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px}
+.cn{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.ctime{font-family:var(--mono);font-size:9px;color:var(--m2);flex-shrink:0;margin-left:6px}
+.cprev{font-size:11px;color:var(--m2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmsg-count{display:inline-block;font-family:var(--mono);font-size:9px;color:var(--m2);margin-left:4px}
+
+.task-row{margin-top:6px;display:flex;align-items:flex-start;gap:5px;border-radius:8px;padding:6px 9px}
+.tr-ahora{background:rgba(255,92,92,0.07);border:1px solid rgba(255,92,92,0.12)}
+.tr-hoy{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.12)}
+.tr-semana{background:var(--blue-d);border:1px solid var(--blue-b)}
+.tr-personal{background:var(--green-d);border:1px solid rgba(37,211,102,0.12)}
+.task-text{font-size:11px;font-weight:600;line-height:1.4}
+.task-red{color:#ff8080}
+.task-amber{color:#fbbf24}
+.task-blue{color:#7ab8ff}
+.task-green{color:#80e8a0}
+
+/* MEETING BADGE */
+.meeting-badge{margin-top:5px;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:rgba(74,158,255,0.1);border:1px solid var(--blue-b);border-radius:8px;font-family:var(--mono);font-size:9px;color:var(--blue)}
+
+/* URGENCY BAR */
+.urgency-bar{position:absolute;top:0;right:0;width:3px;height:100%;background:var(--red);border-radius:0 16px 16px 0;animation:breathe 1.5s ease-in-out infinite}
+
+/* DETAIL */
+.card-detail{border-top:1px solid var(--b1);padding:13px;display:none}
+.card-detail.open{display:block;animation:expandIn 0.2s ease}
+@keyframes expandIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.dl{font-family:var(--mono);font-size:8px;color:var(--m2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
+.dtask{font-size:13px;font-weight:600;line-height:1.5;color:var(--text);margin-bottom:11px;padding:9px 11px;background:var(--s2);border-radius:9px;border:1px solid var(--b2)}
+.dactions{display:flex;gap:7px}
+.btn-wa{flex:1;padding:11px;background:var(--green-d);border:1px solid rgba(37,211,102,0.3);color:var(--green);border-radius:11px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.btn-snooze{padding:11px 12px;background:var(--s2);border:1px solid var(--b2);color:var(--m2);border-radius:11px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer}
+.btn-done{padding:11px 12px;background:var(--s2);border:1px solid var(--b2);color:var(--m2);border-radius:11px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer}
+
+.card.dismissing{animation:dismissOut 0.3s ease forwards}
+@keyframes dismissOut{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0}}
+
+/* EMPTY */
+.empty{text-align:center;padding:50px 20px;color:var(--m2)}
+.empty-emoji{font-size:40px;margin-bottom:10px}
+.empty-title{font-size:16px;font-weight:700;color:var(--text)}
+.empty-sub{font-size:12px;margin-top:5px;line-height:1.6}
+.loading{text-align:center;padding:50px 20px}
+.spinner{width:26px;height:26px;border:2px solid var(--b2);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
+.loading-text{font-family:var(--mono);font-size:11px;color:var(--m2)}
+.err{margin:12px 0;padding:13px;background:var(--red-d);border:1px solid var(--red-b);border-radius:13px;font-size:12px;color:var(--red);text-align:center;line-height:1.5}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--s2);border:1px solid var(--green);border-radius:13px;padding:9px 16px;font-size:12px;font-weight:600;color:var(--green);white-space:nowrap;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5);transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="status-bar">
+  <div class="sb">
     <span id="clock" style="font-family:var(--mono);font-size:13px;font-weight:500">9:41</span>
     <div style="display:flex;gap:5px;align-items:center">
       <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="4" width="3" height="7" rx="1"/><rect x="4" y="2.5" width="3" height="8.5" rx="1"/><rect x="8" y="1" width="3" height="10" rx="1"/><rect x="12" y="0" width="3" height="11" rx="1"/></svg>
       <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="17" height="8" rx="2" fill="currentColor"/></svg>
     </div>
   </div>
-  <div class="header">
-    <div class="header-row">
-      <div class="app-name">PendienteAI</div>
-      <div class="conn-badge"><div class="conn-dot" id="connDot"></div><span id="connText">Conectando...</span></div>
+  <div class="hdr">
+    <div class="hdr-row">
+      <div class="logo">PendienteAI</div>
+      <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
     </div>
-    <div class="header-sub">WAHA · Groq AI · Tu WhatsApp personal</div>
+    <div class="sub">WAHA · Groq AI · Sistema de triaje inteligente</div>
   </div>
-  <div class="stats" id="stats">
-    <div class="stat"><div class="stat-n stat-n-red">-</div><div class="stat-label">Urgentes</div></div>
-    <div class="stat"><div class="stat-n stat-n-blue">-</div><div class="stat-label">Trabajo</div></div>
-    <div class="stat"><div class="stat-n stat-n-green">-</div><div class="stat-label">Personal</div></div>
-    <div class="stat"><div class="stat-n">-</div><div class="stat-label">Total</div></div>
+
+  <!-- PRIORITY CARDS -->
+  <div class="prio-strip" id="prio-strip">
+    <div class="prio-card p-ahora active" onclick="setFilter('ahora',this)">
+      <div class="prio-n red" id="n-ahora">-</div>
+      <div class="prio-label">⚡ Ahora</div>
+    </div>
+    <div class="prio-card p-hoy" onclick="setFilter('hoy',this)">
+      <div class="prio-n amber" id="n-hoy">-</div>
+      <div class="prio-label">📅 Hoy</div>
+    </div>
+    <div class="prio-card p-semana" onclick="setFilter('semana',this)">
+      <div class="prio-n blue" id="n-semana">-</div>
+      <div class="prio-label">📆 Semana</div>
+    </div>
+    <div class="prio-card p-all" onclick="setFilter('all',this)">
+      <div class="prio-n white" id="n-all">-</div>
+      <div class="prio-label">📋 Total</div>
+    </div>
   </div>
-  <div class="filter-tabs">
-    <button class="filter-tab active" onclick="setFilter('all',this)">🔔 Todos</button>
-    <button class="filter-tab urgente" onclick="setFilter('urgente',this)">🔴 Urgentes</button>
-    <button class="filter-tab trabajo" onclick="setFilter('trabajo',this)">💼 Trabajo</button>
-    <button class="filter-tab personal" onclick="setFilter('personal',this)">👥 Personal</button>
+
+  <!-- FILTER PILLS -->
+  <div class="pills">
+    <button class="pill active" onclick="setCat('all',this)">🔔 Todos</button>
+    <button class="pill work" onclick="setCat('trabajo',this)">💼 Trabajo</button>
+    <button class="pill pers" onclick="setCat('personal',this)">👥 Personal</button>
+    <button class="pill" onclick="setCat('meeting',this)">📍 Reuniones</button>
   </div>
-  <div class="scan-area">
+
+  <!-- SCAN -->
+  <div class="scan-row">
     <button class="btn-scan" id="scanBtn" onclick="loadTasks()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       Actualizar
     </button>
   </div>
-  <div class="content" id="main-content">
-    <div class="loading"><div class="loading-spinner"></div><div class="loading-text">Cargando...</div></div>
+
+  <div class="content" id="content">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">Cargando...</div></div>
   </div>
 </div>
 <div class="toast" id="toast"><span id="toastText"></span></div>
+
 <script>
 const API = 'https://pendiente.transtidefreight.com';
-let tasks = [], expanded = null, currentFilter = 'all';
+let tasks=[], expanded=null, filter='ahora', catFilter='all';
 
-function updateClock() {
-  const d = new Date();
-  document.getElementById('clock').textContent = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+function clock(){
+  const d=new Date();
+  document.getElementById('clock').textContent=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
 }
-updateClock(); setInterval(updateClock, 10000);
+clock(); setInterval(clock,10000);
 
-let toastTimer;
-function showToast(text) {
-  const t = document.getElementById('toast');
-  document.getElementById('toastText').textContent = text;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-function setConnected(ok) {
-  document.getElementById('connDot').className = 'conn-dot' + (ok ? '' : ' off');
-  document.getElementById('connText').textContent = ok ? 'En vivo' : 'Sin conexión';
+let tt;
+function toast(t){
+  const el=document.getElementById('toast');
+  document.getElementById('toastText').textContent=t;
+  el.classList.add('show');
+  clearTimeout(tt);
+  tt=setTimeout(()=>el.classList.remove('show'),2500);
 }
 
-function setFilter(f, btn) {
-  currentFilter = f;
-  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+function setConn(ok){
+  document.getElementById('dot').className='dot'+(ok?'':' off');
+  document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';
+}
+
+function setFilter(f,btn){
+  filter=f;
+  document.querySelectorAll('.prio-card').forEach(c=>c.classList.remove('active'));
   btn.classList.add('active');
   renderTasks();
 }
 
-async function loadTasks() {
-  const btn = document.getElementById('scanBtn');
-  btn.classList.add('scanning');
-  btn.innerHTML = '<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Actualizando...';
-  try {
-    const res = await fetch(API + '/tasks');
-    if (!res.ok) throw new Error('Error ' + res.status);
-    tasks = await res.json();
-    setConnected(true);
+function setCat(c,btn){
+  catFilter=c;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  renderTasks();
+}
+
+async function loadTasks(){
+  const btn=document.getElementById('scanBtn');
+  btn.innerHTML='<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Actualizando...';
+  try{
+    const r=await fetch(API+'/tasks');
+    if(!r.ok) throw new Error('Error '+r.status);
+    tasks=await r.json();
+    setConn(true);
     renderStats();
     renderTasks();
-    showToast('✅ ' + tasks.length + ' tareas');
-  } catch(e) {
-    setConnected(false);
-    document.getElementById('main-content').innerHTML = '<div class="error-box">Sin conexión<br><small>' + e.message + '</small></div>';
-  } finally {
-    btn.classList.remove('scanning');
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
+    toast('✅ '+tasks.length+' pendientes');
+  }catch(e){
+    setConn(false);
+    document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+e.message+'</small></div>';
+  }finally{
+    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Actualizar';
   }
 }
 
-async function deleteTask(id) {
-  try { await fetch(API + '/tasks/' + id, { method: 'DELETE' }); } catch(e) {}
-  tasks = tasks.filter(t => t.id != id);
+async function delTask(id){
+  try{await fetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}
+  tasks=tasks.filter(t=>t.id!=id);
   renderStats(); renderTasks();
 }
 
-function getInitials(n) { return (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
-function formatHours(h) { if(h<1) return 'recién'; if(h<24) return 'hace '+h+'h'; return 'hace '+Math.floor(h/24)+'d'; }
-
-function renderStats() {
-  const urgent = tasks.filter(m=>m.urgent).length;
-  const trabajo = tasks.filter(m=>m.category==='trabajo').length;
-  const personal = tasks.filter(m=>m.category==='personal').length;
-  document.getElementById('stats').innerHTML =
-    '<div class="stat"><div class="stat-n stat-n-red">'+urgent+'</div><div class="stat-label">Urgentes</div></div>' +
-    '<div class="stat"><div class="stat-n stat-n-blue">'+trabajo+'</div><div class="stat-label">Trabajo</div></div>' +
-    '<div class="stat"><div class="stat-n stat-n-green">'+personal+'</div><div class="stat-label">Personal</div></div>' +
-    '<div class="stat"><div class="stat-n">'+tasks.length+'</div><div class="stat-label">Total</div></div>';
+async function snoozeTask(id){
+  try{await fetch(API+'/tasks/'+id+'/snooze',{method:'PATCH'});}catch(e){}
+  const t=tasks.find(t=>t.id==id);
+  if(t){t.priority='semana';t.urgent=false;}
+  renderStats(); renderTasks();
+  toast('😴 Postergado para la semana');
 }
 
-function getFiltered() {
-  if (currentFilter === 'urgente') return tasks.filter(m=>m.urgent);
-  if (currentFilter === 'trabajo') return tasks.filter(m=>m.category==='trabajo');
-  if (currentFilter === 'personal') return tasks.filter(m=>m.category==='personal');
-  return tasks;
+function ini(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+function hrs(h){if(h<1)return 'recién';if(h<24)return h+'h';return Math.floor(h/24)+'d'}
+
+function renderStats(){
+  const ahora=tasks.filter(t=>t.priority==='ahora').length;
+  const hoy=tasks.filter(t=>t.priority==='hoy').length;
+  const semana=tasks.filter(t=>t.priority==='semana').length;
+  document.getElementById('n-ahora').textContent=ahora;
+  document.getElementById('n-hoy').textContent=hoy;
+  document.getElementById('n-semana').textContent=semana;
+  document.getElementById('n-all').textContent=tasks.length;
 }
 
-function renderTasks() {
-  const el = document.getElementById('main-content');
-  const filtered = getFiltered();
-  const urgent = filtered.filter(m=>m.urgent);
-  const normal = filtered.filter(m=>!m.urgent);
+function getFiltered(){
+  let t=[...tasks];
+  if(filter!=='all') t=t.filter(x=>x.priority===filter);
+  if(catFilter==='trabajo') t=t.filter(x=>x.category==='trabajo');
+  else if(catFilter==='personal') t=t.filter(x=>x.category==='personal');
+  else if(catFilter==='meeting') t=t.filter(x=>x.meeting);
+  return t;
+}
 
-  if (!filtered.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-emoji">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No hay pendientes en esta categoría</div></div>';
+function prioConfig(p){
+  if(p==='ahora') return {emoji:'⚡',label:'Acción inmediata',secClass:'',cardClass:'ahora',avClass:'av-ahora',trClass:'tr-ahora',textClass:'task-red',badgeClass:'red'};
+  if(p==='hoy') return {emoji:'📅',label:'Para hoy',cardClass:'hoy',avClass:'av-hoy',trClass:'tr-hoy',textClass:'task-amber',badgeClass:''};
+  return {emoji:'📆',label:'Esta semana',cardClass:'',avClass:'',trClass:'tr-semana',textClass:'task-blue',badgeClass:''};
+}
+
+function renderTasks(){
+  const el=document.getElementById('content');
+  const filtered=getFiltered();
+
+  if(!filtered.length){
+    const msgs={ahora:'No hay acciones urgentes 🎉',hoy:'Estás al día por ahora 👍',semana:'Nada pendiente para la semana',all:'No hay mensajes pendientes'};
+    el.innerHTML='<div class="empty"><div class="empty-emoji">✅</div><div class="empty-title">'+( msgs[filter]||msgs.all)+'</div><div class="empty-sub">Los nuevos mensajes aparecerán aquí automáticamente</div></div>';
     return;
   }
 
-  let html = '';
-  if (urgent.length) {
-    html += '<div class="section-title">🔴 urgentes · '+urgent.length+'</div>';
-    urgent.forEach((m,i) => { html += cardHTML(m, i*40); });
-  }
-  if (normal.length) {
-    html += '<div class="section-title" style="margin-top:4px">'+(currentFilter==='trabajo'?'💼':'currentFilter'==='personal'?'👥':'⚪')+' pendientes · '+normal.length+'</div>';
-    normal.forEach((m,i) => { html += cardHTML(m, (urgent.length+i)*40); });
-  }
-  el.innerHTML = html;
+  // Agrupar por prioridad
+  const groups={ahora:[],hoy:[],semana:[]};
+  filtered.forEach(t=>{
+    const p=t.priority||'semana';
+    if(groups[p]) groups[p].push(t);
+    else groups.semana.push(t);
+  });
+
+  let html='';
+  ['ahora','hoy','semana'].forEach(p=>{
+    const items=groups[p];
+    if(!items.length) return;
+    const cfg=prioConfig(p);
+    html+='<div class="sec-hdr">'+cfg.emoji+' '+cfg.label+' · '+items.length+'</div>';
+    items.forEach((m,i)=>{html+=cardHTML(m,i*40,cfg);});
+  });
+
+  el.innerHTML=html;
 }
 
-function cardHTML(m, delay) {
-  const isOpen = expanded===m.id;
-  const init = getInitials(m.contact);
-  const cat = m.category || 'personal';
-  const isWork = cat === 'trabajo';
-  const chipClass = m.urgent ? 'task-chip-urgent' : (isWork ? 'task-chip-trabajo' : 'task-chip-personal');
-  const textClass = m.urgent ? 'task-text-urgent' : (isWork ? 'task-text-trabajo' : 'task-text-personal');
-  const avatarClass = m.urgent ? 'avatar-urgent' : (isWork ? 'avatar-trabajo' : 'avatar-personal');
-  const cardClass = m.urgent ? 'urgent' : (isWork ? 'trabajo' : '');
-  const catEmoji = isWork ? '💼' : '👥';
+function cardHTML(m,delay,cfg){
+  const isOpen=expanded===m.id;
+  const init=ini(m.contact);
+  const cat=m.category||'personal';
+  const isWork=cat==='trabajo';
+  const avClass=cfg.avClass||(isWork?'av-trabajo':'av-personal');
+  const badgeEmoji=isWork?'💼':'👥';
+  const badgeClass=cfg.badgeClass||(isWork?'blue':'green');
+  const trClass=cfg.trClass||(isWork?'tr-semana':'tr-personal');
+  const textClass=cfg.textClass||(isWork?'task-blue':'task-green');
+  const cardSideClass=isWork?'trabajo-card':'personal-card';
 
-  return '<div class="msg-card '+cardClass+'" id="card-'+m.id+'" onclick="toggleCard('+m.id+')" style="animation-delay:'+delay+'ms">'+
-    '<div class="msg-main">'+
-    '<div class="avatar '+avatarClass+'">'+init+
-    '<div class="cat-badge '+(isWork?'cat-trabajo':'cat-personal')+'">'+catEmoji+'</div>'+
-    (m.urgent?'<div class="avatar-badge">!</div>':'')+
+  let meetingBadge='';
+  if(m.meeting && m.meeting.time){
+    meetingBadge='<div class="meeting-badge">📍 '+([m.meeting.date,m.meeting.time,m.meeting.location].filter(Boolean).join(' · '))+'</div>';
+  }
+
+  return '<div class="card '+(cfg.cardClass||'')+' '+cardSideClass+'" id="card-'+m.id+'" onclick="toggle('+m.id+')" style="animation-delay:'+delay+'ms">'+
+    (m.urgent?'<div class="urgency-bar"></div>':'')+
+    '<div class="card-main">'+
+    '<div class="av '+avClass+'">'+init+
+    '<div class="av-badge '+badgeClass+'">'+badgeEmoji+'</div>'+
     '</div>'+
-    '<div class="msg-body">'+
-    '<div class="msg-top"><span class="msg-name">'+m.contact+'</span><span class="msg-time">'+formatHours(m.hours)+'</span></div>'+
-    '<div class="msg-preview">'+m.preview+'</div>'+
-    '<div class="task-chip '+chipClass+'"><span class="'+textClass+'">'+m.task+'</span></div>'+
-    '</div>'+
-    (m.urgent?'<div class="urgent-indicator"></div>':'')+
-    '</div>'+
+    '<div class="cb">'+
+    '<div class="ct"><span class="cn">'+m.contact+'</span><span class="ctime">'+hrs(m.hours||0)+'</span></div>'+
+    '<div class="cprev">'+m.preview+(m.msgCount>1?'<span class="cmsg-count">+'+( m.msgCount-1)+' msgs</span>':'')+'</div>'+
+    '<div class="task-row '+trClass+'"><span class="task-text '+textClass+'">'+m.task+'</span></div>'+
+    meetingBadge+
+    '</div></div>'+
     '<div class="card-detail '+(isOpen?'open':'')+'" id="detail-'+m.id+'" onclick="event.stopPropagation()">'+
-    '<div class="detail-label">'+catEmoji+' '+cat.toUpperCase()+' · Tarea detectada por IA</div>'+
-    '<div class="detail-task">'+m.task+'</div>'+
-    '<div class="detail-actions">'+
-    '<button class="btn-wa" onclick="resolve('+m.id+')">✅ Marcar resuelto</button>'+
-    '<button class="btn-done" onclick="resolve('+m.id+')">Listo ✓</button>'+
+    '<div class="dl">'+badgeEmoji+' '+cat.toUpperCase()+' · Tarea detectada por IA</div>'+
+    '<div class="dtask">'+m.task+'</div>'+
+    (m.fullPreview&&m.msgCount>1?'<div style="font-size:11px;color:var(--m2);margin-bottom:10px;line-height:1.5;font-family:var(--mono)">'+m.fullPreview+'</div>':'')+
+    '<div class="dactions">'+
+    '<button class="btn-wa" onclick="resolve('+m.id+')">✅ Resuelto</button>'+
+    '<button class="btn-snooze" onclick="snoozeTask('+m.id+')">😴 Semana</button>'+
+    '<button class="btn-done" onclick="resolve('+m.id+')">✓</button>'+
     '</div></div></div>';
 }
 
-function toggleCard(id) {
-  expanded = expanded===id ? null : id;
+function toggle(id){
+  expanded=expanded===id?null:id;
   renderTasks();
-  setTimeout(()=>{ const el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },50);
+  setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
 }
 
-function resolve(id) {
-  const c = document.getElementById('card-'+id);
-  if(c) { c.classList.add('dismissing'); setTimeout(()=>{ deleteTask(id); showToast('✅ Resuelto'); },280); }
+function resolve(id){
+  const c=document.getElementById('card-'+id);
+  if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}
 }
 
-setInterval(loadTasks, 60000);
+setInterval(loadTasks,60000);
 loadTasks();
 </script>
 </body>
