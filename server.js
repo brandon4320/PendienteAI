@@ -16,60 +16,20 @@ app.use((req, res, next) => {
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 let tasks = [];
 
-// Filtros: ignorar estos tipos de mensajes
-function shouldIgnore(contact, text) {
-  // Ignorar IDs de grupos raros
-  if (contact.includes('@g.us') || contact.includes('@lid')) return true;
-  if (contact === 'status@broadcast') return true;
-  
-  // Ignorar publicidad y spam de eventos
-  const spamPatterns = [
-    /vendo/i, /compro/i, /venta/i, /precio/i,
-    /entradas/i, /tickets/i, /boleteria/i, /festival/i,
-    /after party/i, /dj /i, /line up/i, /lineup/i,
-    /punto de venta/i, /palco/i, /vip/i,
-    /descuento/i, /promo/i, /oferta/i,
-    /envios en el dia/i, /delivery/i,
-    /\*COMPRO\*/i, /\*VENDO\*/i,
-    /click aca/i, /haciendo click/i,
-    /www\./i, /http/i,
-  ];
-  
-  // Si el texto tiene patron de spam, ignorar
-  const spamCount = spamPatterns.filter(p => p.test(text)).length;
-  if (spamCount >= 2) return true;
-  
-  // Ignorar mensajes muy cortos sin contexto (emojis solos, etc)
-  if (text.length < 3) return true;
-  
-  return false;
-}
-
 async function analyzeMessage(contact, text) {
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
     messages: [{
       role: 'user',
-      content: `Sos un asistente personal. Analizá este mensaje de WhatsApp y decidí si requiere una acción de mi parte.
-      
-IGNORAR si es: publicidad, spam, noticias de grupos, venta de entradas/tickets, compra/venta de productos, mensajes de broadcast, cadenas.
-SOLO marcar como pendiente si: alguien me hace una pregunta directa, me pide algo concreto, me confirma una reunión, o necesita respuesta urgente de mi parte.
-
+      content: `Analizá este mensaje de WhatsApp y respondé SOLO en JSON sin texto extra.
 Contacto: ${contact}
 Mensaje: ${text}
-
-Respondé SOLO en JSON:
-{"needsAction": true/false, "task": "qué tengo que hacer (máx 10 palabras)", "urgent": true/false}
-Si no requiere acción, needsAction debe ser false.`
+Formato exacto:
+{"needsAction": true/false, "isUnanswered": true/false, "task": "descripción corta", "urgent": true/false}`
     }],
-    max_tokens: 150,
+    max_tokens: 200,
   });
-  
-  try {
-    return JSON.parse(res.choices[0].message.content);
-  } catch(e) {
-    return { needsAction: false, task: '', urgent: false };
-  }
+  return JSON.parse(res.choices[0].message.content);
 }
 
 app.post('/webhook', async (req, res) => {
@@ -77,17 +37,11 @@ app.post('/webhook', async (req, res) => {
     const { event, payload } = req.body;
     if (event !== 'message') return res.sendStatus(200);
     if (payload.fromMe) return res.sendStatus(200);
-
     const text = payload.body || '';
-    const contact = payload._data?.notifyName || payload.from || '';
-    
-    // Filtrar antes de llamar a la IA
-    if (shouldIgnore(contact, text)) return res.sendStatus(200);
-    if (!text || text.length < 3) return res.sendStatus(200);
-
+    if (!text) return res.sendStatus(200);
+    const contact = payload._data?.notifyName || payload.from;
     const analysis = await analyzeMessage(contact, text);
-
-    if (analysis.needsAction) {
+    if (analysis.needsAction || analysis.isUnanswered) {
       tasks.push({
         id: Date.now(),
         contact,
@@ -97,7 +51,6 @@ app.post('/webhook', async (req, res) => {
         hours: 0,
         createdAt: new Date(),
       });
-      console.log('Tarea agregada:', contact, '-', analysis.task);
     }
   } catch(e) {
     console.error('Error:', e.message);
