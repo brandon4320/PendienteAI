@@ -10,7 +10,7 @@ app.use(express.json({ limit: '10mb' }));
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 const API_TOKEN = process.env.API_TOKEN || 'pendiente2024secret';
 function authMiddleware(req, res, next) {
-  if (req.path === '/webhook' || req.path === '/health') return next();
+  if (req.path === '/webhook' || req.path === '/health' || req.path === '/stream') return next();
   const token = req.headers['x-api-token'] || req.query.token;
   if (token !== API_TOKEN) return res.status(401).json({ error: 'No autorizado' });
   next();
@@ -274,7 +274,34 @@ function getRecentHistory(contact) {
 
 // ─── GROQ ─────────────────────────────────────────────────────────────────────
 let burstBuffer = {};
-let phoneCache = {}; // contact → phone number // solo para el timer de 20s
+let phoneCache = {}; // contact → phone number
+
+// ─── SSE: SERVER-SENT EVENTS ──────────────────────────────────────────────────
+let sseClients = []; // Array de respuestas activas (cada cliente conectado)
+
+function sseBroadcast(eventType, data) {
+  const payload = 'event: ' + eventType + '\ndata: ' + JSON.stringify(data || {}) + '\n\n';
+  sseClients = sseClients.filter(client => {
+    try {
+      client.write(payload);
+      return true;
+    } catch(e) {
+      return false; // Cliente desconectado
+    }
+  });
+  if (sseClients.length > 0) {
+    console.log('[SSE] ' + eventType + ' → ' + sseClients.length + ' cliente(s)');
+  }
+}
+
+// Heartbeat cada 30s para mantener viva la conexión (iOS cierra inactivas)
+setInterval(() => {
+  sseClients = sseClients.filter(client => {
+    try { client.write(': heartbeat\n\n'); return true; }
+    catch(e) { return false; }
+  });
+}, 30000);
+ // solo para el timer de 20s
 
 async function analyzeConversation(contact, messages) {
   const now = new Date();
@@ -400,6 +427,7 @@ function saveTask(contact, msgs, analysis, contactPhone) {
           meeting?.date||null,meeting?.time||null,meeting?.location||null,
           actionsJson,phoneFromContact,existing.id);
       console.log('[MIO-UPDATE] '+contact+': '+safeTask);
+      sseBroadcast('task_changed', { type: 'updated', taskType: 'mio', contact });
       return;
     }
   } else {
@@ -431,6 +459,7 @@ function saveTask(contact, msgs, analysis, contactPhone) {
           meeting?.date||null,meeting?.time||null,meeting?.location||null,
           actionsJson,phoneFromContact,matchedExisting.id);
       console.log('[PENDIENTE-UPDATE] '+contact+': '+safeTask);
+      sseBroadcast('task_changed', { type: 'updated', taskType: 'pendiente', contact });
       return;
     }
     // No match → INSERT separado abajo
@@ -444,6 +473,7 @@ function saveTask(contact, msgs, analysis, contactPhone) {
       analysis.urgent?1:0,analysis.category||'personal',type,type==='mio'?1:0,
       meeting?.date||null,meeting?.time||null,meeting?.location||null);
   console.log('['+type.toUpperCase()+'-NEW]['+( analysis.priority||'hoy')+'] '+contact+': '+safeTask);
+  sseBroadcast('task_changed', { type: 'new', taskType: type, contact });
 }
 
 // Sin responder: guardar con timestamp para calcular la demora después
@@ -580,14 +610,17 @@ app.get('/tasks', (req, res) => {
 
 app.delete('/tasks/:id', (req, res) => {
   db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE id=?").run(req.params.id);
+  sseBroadcast('task_changed', { type: 'resolved', id: req.params.id });
   res.sendStatus(200);
 });
 app.patch('/tasks/:id/snooze', (req, res) => {
   db.prepare("UPDATE tasks SET priority='semana',urgent=0 WHERE id=?").run(req.params.id);
+  sseBroadcast('task_changed', { type: 'snoozed', id: req.params.id });
   res.sendStatus(200);
 });
 app.patch('/tasks/:id/keep', (req, res) => {
   db.prepare("UPDATE tasks SET type='pendiente' WHERE id=?").run(req.params.id);
+  sseBroadcast('task_changed', { type: 'kept', id: req.params.id });
   res.sendStatus(200);
 });
 
@@ -604,6 +637,7 @@ app.patch('/tasks/:id/edit', (req, res) => {
   } else {
     db.prepare("UPDATE tasks SET task=? WHERE id=?").run(trimmed, id);
   }
+  sseBroadcast('task_changed', { type: 'edited', id });
   res.sendStatus(200);
 });
 
@@ -613,4 +647,31 @@ app.get('/health', (req, res) => {
   res.json({ status:'ok', pendingTasks:tasks.n, queueLength:queue.length, historyMsgs:hist.n, sinResponderPending:db.prepare("SELECT COUNT(*) as n FROM sin_responder_pending").get().n });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.4 en puerto', process.env.PORT || 3001));
+
+app.get('/stream', (req, res) => {
+  // Auth: aceptar token por query string (EventSource no permite headers custom)
+  const token = req.query.token || req.headers['x-api-token'];
+  if (token !== API_TOKEN) return res.status(401).end();
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Para nginx/proxies
+  });
+  res.flushHeaders?.();
+
+  // Mensaje inicial de conexión
+  res.write('event: connected\ndata: {"status":"ok"}\n\n');
+
+  sseClients.push(res);
+  console.log('[SSE] Cliente conectado. Total: ' + sseClients.length);
+
+  // Limpiar al desconectar
+  req.on('close', () => {
+    sseClients = sseClients.filter(c => c !== res);
+    console.log('[SSE] Cliente desconectado. Total: ' + sseClients.length);
+  });
+});
+
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.5 en puerto', process.env.PORT || 3001));
