@@ -26,7 +26,6 @@ app.use(authMiddleware);
 
 // ─── SQLITE ───────────────────────────────────────────────────────────────────
 const db = new Database(path.join(__dirname, 'tasks.db'));
-
 db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,8 +45,6 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     resolved_at DATETIME
   );
-
-  -- Historial de conversaciones persistente
   CREATE TABLE IF NOT EXISTS conv_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     contact TEXT NOT NULL,
@@ -61,16 +58,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
 `);
 
-// Migraciones
+// Migraciones seguras
 const cols = db.pragma('table_info(tasks)').map(c => c.name);
 if (!cols.includes('type')) db.exec("ALTER TABLE tasks ADD COLUMN type TEXT DEFAULT 'pendiente'");
 if (!cols.includes('from_me')) db.exec("ALTER TABLE tasks ADD COLUMN from_me INTEGER DEFAULT 0");
+if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
 
-// Limpieza: tareas resueltas > 30 días, historial > 24 horas
 function cleanOldData() {
   db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
-  const r = db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-1 day')").run();
-  if (r.changes > 0) console.log('Historial: ' + r.changes + ' mensajes viejos eliminados');
+  db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-1 day')").run();
 }
 cleanOldData();
 const n3 = new Date(); n3.setHours(3,0,0,0);
@@ -86,41 +82,33 @@ async function enqueue(job) {
   queue.push(job);
   if (!processing) processQueue();
 }
-
 async function processQueue() {
   if (queue.length === 0) { processing = false; return; }
   processing = true;
   const job = queue.shift();
   try { await job(); } catch(e) { console.error('Queue error:', e.message); }
-  setTimeout(processQueue, 2000); // 1 req cada 2s → max 30/min
+  setTimeout(processQueue, 2000);
 }
 
-// ─── HISTORIAL DE CONVERSACIÓN ────────────────────────────────────────────────
+// ─── HISTORIAL ────────────────────────────────────────────────────────────────
 function saveToHistory(contact, text, fromMe) {
-  db.prepare("INSERT INTO conv_history (contact, text, from_me) VALUES (?,?,?)").run(contact, text, fromMe ? 1 : 0);
+  db.prepare("INSERT INTO conv_history (contact, text, from_me) VALUES (?,?,?)").run(contact, text, fromMe?1:0);
 }
-
-function getRecentHistory(contact, limitHours = 6, limitMsgs = 20) {
-  // Trae los últimos N mensajes de las últimas X horas
+function getRecentHistory(contact) {
   return db.prepare(`
-    SELECT text, from_me, created_at FROM conv_history
-    WHERE contact = ?
-    AND created_at > datetime('now', '-${limitHours} hours')
-    ORDER BY created_at ASC
-    LIMIT ${limitMsgs}
-  `).all(contact).map(r => ({ text: r.text, fromMe: r.from_me === 1 }));
+    SELECT text, from_me FROM conv_history
+    WHERE contact=? AND created_at > datetime('now','-6 hours')
+    ORDER BY created_at ASC LIMIT 20
+  `).all(contact).map(r => ({ text: r.text, fromMe: r.from_me===1 }));
 }
 
 // ─── GROQ ─────────────────────────────────────────────────────────────────────
-// Buffer solo para acumular mensajes del burst actual (se combina con historial)
-let burstBuffer = {};
+let burstBuffer = {}; // solo para el timer de 20s
 
 async function analyzeConversation(contact, messages) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
-  const conv = messages.map((m,i) =>
-    (i+1) + '. [' + (m.fromMe ? 'BRANDON' : contact) + ']: ' + m.text
-  ).join('\n');
+  const conv = messages.map((m,i) => (i+1)+'. ['+(m.fromMe?'BRANDON':contact)+']: '+m.text).join('\n');
   const lastIsFromOther = messages.length > 0 && !messages[messages.length-1].fromMe;
 
   const res = await groq.chat.completions.create({
@@ -132,24 +120,23 @@ Hora actual: ${timeStr}
 Contacto: ${contact}
 Último mensaje sin respuesta de Brandon: ${lastIsFromOther ? 'SÍ' : 'NO'}
 
-CONVERSACIÓN COMPLETA (con contexto de horas anteriores):
+CONVERSACIÓN (con contexto de horas anteriores si existe):
 ${conv}
 
 BUSCÁ en el contexto completo:
-1. ¿Evento, cita, reunión o plan acordado? ("dale el lunes", "nos vemos mañana", "sino dale el X")
+1. ¿Evento, cita, reunión o plan acordado? ("dale el lunes", "nos vemos mañana", "sino dale X")
 2. ¿Tarea o pedido concreto para Brandon?
-3. ¿Brandon asumió un compromiso? ("yo me ocupo", "te llamo", "ya lo cerramos", "dale el lunes")
-4. ¿El último mensaje es del otro sin respuesta de Brandon?
+3. ¿Brandon asumió un compromiso? ("yo me ocupo", "te llamo", "ya lo cerramos")
 
 REGLAS:
-- Evento o plan acordado → needsAction:true, type:"mio"
-- El otro le pide algo → needsAction:true, type:"pendiente"
+- Evento o plan acordado entre ambos → needsAction:true, type:"mio"
+- El otro le pide algo concreto a Brandon → needsAction:true, type:"pendiente"
 - Brandon asumió compromiso → needsAction:true, type:"mio"
-- Último mensaje del otro sin respuesta → sinResponder:true
-- Charla sin acción ni compromiso → needsAction:false
+- NOTA: el campo sinResponder NO se usa acá, lo maneja el sistema por separado
+- Charla sin acción ni compromiso concreto → needsAction:false
 
 CATEGORÍA:
-- "trabajo": nombre contiene transtide/financiera/cliente/proveedor/logistica/transporte/obra/aduana, o tema laboral
+- "trabajo": transtide/financiera/cliente/proveedor/logistica/transporte/obra/aduana en nombre, o tema laboral
 - "personal": amigos, familia, pareja, planes sociales
 
 PRIORIDAD:
@@ -161,25 +148,24 @@ PRIORIDAD:
 Respondé SOLO JSON:
 {
   "needsAction": true/false,
-  "sinResponder": true/false,
   "type": "pendiente|mio",
   "priority": "ahora|hoy|semana|ignorar",
   "category": "trabajo|personal",
-  "keyMessage": "mensaje más relevante de toda la conversación (máx 70 chars)",
+  "keyMessage": "mensaje más relevante (máx 70 chars)",
   "task": "qué tiene que hacer Brandon, máximo 8 palabras",
-  "meeting": { "date": "día/fecha acordada", "time": "hora si hay", "location": "lugar si hay" } o null,
+  "meeting": { "date": "día/fecha", "time": "hora", "location": "lugar" } o null,
   "urgent": true/false
 }`
     }],
-    max_tokens: 350,
+    max_tokens: 300,
   });
 
   try {
     const content = res.choices[0].message.content.trim();
     const match = content.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : { needsAction: false, sinResponder: false, priority: 'ignorar' };
+    return match ? JSON.parse(match[0]) : { needsAction: false, priority: 'ignorar' };
   } catch(e) {
-    return { needsAction: false, sinResponder: false, priority: 'ignorar' };
+    return { needsAction: false, priority: 'ignorar' };
   }
 }
 
@@ -190,6 +176,9 @@ function saveTask(contact, msgs, analysis) {
   const lastMsg = msgs[msgs.length-1]?.text || '';
   const keyMsg = (analysis.keyMessage || lastMsg).slice(0, 150);
 
+  // ── DEDUPLICACIÓN: si ya existe tarea del mismo contacto Y tarea similar, actualizar en vez de crear nueva ──
+  // Para "pendiente": buscar si hay tarea reciente (últimas 2 horas) del mismo contacto
+  // Para "mio": siempre una por contacto
   if (type === 'mio') {
     const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='mio' LIMIT 1").get(contact);
     if (existing) {
@@ -198,31 +187,63 @@ function saveTask(contact, msgs, analysis) {
         .run(lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
           analysis.urgent?1:0,analysis.category||'personal',
           meeting?.date||null,meeting?.time||null,meeting?.location||null,existing.id);
+      console.log('[MIO-UPDATE] '+contact+': '+analysis.task);
+      return;
+    }
+  } else {
+    // Para pendiente: si hay tarea del mismo contacto creada en las últimas 2 horas, actualizar
+    const recent = db.prepare(`
+      SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='pendiente'
+      AND created_at > datetime('now','-2 hours') LIMIT 1
+    `).get(contact);
+    if (recent) {
+      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
+        meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .run(lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
+          analysis.urgent?1:0,analysis.category||'personal',
+          meeting?.date||null,meeting?.time||null,meeting?.location||null,recent.id);
+      console.log('[PENDIENTE-UPDATE] '+contact+': '+analysis.task);
       return;
     }
   }
 
+  // Nueva tarea
   db.prepare(`INSERT INTO tasks
     (contact,preview,key_message,task,priority,urgent,category,type,from_me,meeting_date,meeting_time,meeting_location)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(contact,lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
       analysis.urgent?1:0,analysis.category||'personal',type,type==='mio'?1:0,
       meeting?.date||null,meeting?.time||null,meeting?.location||null);
-
-  console.log('['+type.toUpperCase()+']['+( analysis.priority||'hoy')+'] '+contact+': '+analysis.task);
+  console.log('['+type.toUpperCase()+'-NEW]['+( analysis.priority||'hoy')+'] '+contact+': '+analysis.task);
 }
 
-function saveSinResponder(contact, msgs, analysis) {
+// Sin responder: guardar con timestamp para calcular la demora después
+let sinResponderPending = {}; // { contact: { lastMsg, analysis, timer } }
+
+function scheduleSinResponder(contact, msgs, analysis) {
+  // Esperar 1 hora antes de agregar a sin_responder
   const lastMsg = msgs[msgs.length-1]?.text || '';
-  const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='sin_responder' LIMIT 1").get(contact);
-  if (!existing) {
-    db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type) VALUES (?,?,?,?,?,?,?)")
-      .run(contact,lastMsg.slice(0,80),(analysis.keyMessage||lastMsg).slice(0,150),
-        'Responder a '+contact,
-        analysis.priority==='ignorar'?'hoy':analysis.priority||'hoy',
-        analysis.category||'personal','sin_responder');
-    console.log('[SIN_RESPONDER] '+contact);
-  }
+
+  // Cancelar si ya había uno pendiente para este contacto
+  if (sinResponderPending[contact]?.timer) clearTimeout(sinResponderPending[contact].timer);
+
+  sinResponderPending[contact] = {
+    timer: setTimeout(() => {
+      delete sinResponderPending[contact];
+      // Verificar que Brandon todavía no respondió
+      const history = getRecentHistory(contact);
+      const lastInHistory = history[history.length-1];
+      if (lastInHistory && lastInHistory.fromMe) return; // ya respondió, no agregar
+
+      const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='sin_responder' LIMIT 1").get(contact);
+      if (!existing) {
+        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type) VALUES (?,?,?,?,?,?,?)")
+          .run(contact,lastMsg.slice(0,80),(analysis.keyMessage||lastMsg).slice(0,150),
+            'Responder a '+contact,'hoy',analysis.category||'personal','sin_responder');
+        console.log('[SIN_RESPONDER - 1h] '+contact);
+      }
+    }, 60 * 60 * 1000) // 1 hora
+  };
 }
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
@@ -240,43 +261,45 @@ app.post('/webhook', async (req, res) => {
     if (!payload._data?.notifyName && contact.includes('@g.us')) return;
     if (!text || text.length < 3) return;
 
-    // 1. Guardar en historial persistente (SQLite)
+    // Guardar en historial persistente
     saveToHistory(contact, text, fromMe);
 
-    // 2. Si Brandon responde → limpiar sin_responder
     if (fromMe) {
+      // Brandon respondió → limpiar sin_responder y cancelar timer pendiente
       db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE contact=? AND type='sin_responder' AND status='pending'").run(contact);
+      if (sinResponderPending[contact]?.timer) {
+        clearTimeout(sinResponderPending[contact].timer);
+        delete sinResponderPending[contact];
+      }
     }
 
-    // 3. Acumular burst actual en memoria
+    // Resetear timer de burst (20s de silencio antes de analizar)
     if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null };
     if (burstBuffer[contact].timer) clearTimeout(burstBuffer[contact].timer);
 
-    // 4. Después de 20s de silencio → encolar análisis
     burstBuffer[contact].timer = setTimeout(() => {
       delete burstBuffer[contact];
 
       enqueue(async () => {
         try {
-          // Leer historial completo de las últimas 6 horas (hasta 20 mensajes)
-          // Esto incluye mensajes de horas atrás con contexto completo
-          const history = getRecentHistory(contact, 6, 20);
-
+          const history = getRecentHistory(contact);
           if (history.length === 0) return;
 
-          const analysis = await analyzeConversation(contact, history);
+          const lastIsFromOther = !history[history.length-1].fromMe;
 
+          // Analizar para tareas y compromisos
+          const analysis = await analyzeConversation(contact, history);
           if (analysis.needsAction && analysis.priority !== 'ignorar') {
             saveTask(contact, history, analysis);
           }
-          if (analysis.sinResponder) {
-            saveSinResponder(contact, history, analysis);
-          }
-        } catch(e) {
-          console.error('Analysis error [' + contact + ']:', e.message);
-        }
-      });
 
+          // Sin responder: solo si el último mensaje es del otro, programar para 1 hora después
+          if (lastIsFromOther) {
+            scheduleSinResponder(contact, history, analysis);
+          }
+
+        } catch(e) { console.error('Analysis error ['+contact+']:', e.message); }
+      });
     }, 20000);
 
   } catch(e) { console.error('Webhook error:', e.message); }
@@ -304,12 +327,10 @@ app.delete('/tasks/:id', (req, res) => {
   db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE id=?").run(req.params.id);
   res.sendStatus(200);
 });
-
 app.patch('/tasks/:id/snooze', (req, res) => {
   db.prepare("UPDATE tasks SET priority='semana',urgent=0 WHERE id=?").run(req.params.id);
   res.sendStatus(200);
 });
-
 app.patch('/tasks/:id/keep', (req, res) => {
   db.prepare("UPDATE tasks SET type='pendiente' WHERE id=?").run(req.params.id);
   res.sendStatus(200);
@@ -317,8 +338,8 @@ app.patch('/tasks/:id/keep', (req, res) => {
 
 app.get('/health', (req, res) => {
   const tasks = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
-  const history = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
-  res.json({ status:'ok', pendingTasks:tasks.n, queueLength:queue.length, historyMsgs:history.n });
+  const hist = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
+  res.json({ status:'ok', pendingTasks:tasks.n, queueLength:queue.length, historyMsgs:hist.n, sinResponderPending:Object.keys(sinResponderPending).length });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.2 en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.3 en puerto', process.env.PORT || 3001));
