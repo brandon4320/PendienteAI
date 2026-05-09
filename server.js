@@ -543,6 +543,7 @@ app.post('/webhook', async (req, res) => {
           if (!history.length) return;
           const lastIsFromOther = !history[history.length - 1].fromMe;
           const analysis = await analyzeConversation(contact, history);
+          console.log('[ANALYSIS] ' + contact + ': needsAction=' + analysis.needsAction + ' priority=' + analysis.priority + ' type=' + analysis.type + ' task="' + analysis.task + '"');
           if (analysis.needsAction && analysis.priority !== 'ignorar') {
             saveTask(contact, history, analysis, getCachedPhone(contact));
           }
