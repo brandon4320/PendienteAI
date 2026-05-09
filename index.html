@@ -530,7 +530,54 @@ function renderCard(t,delay){
 function toggle(id){expanded=expanded===id?null:id;renderTasks();setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
 function resolve(id){const c=document.getElementById('card-'+id);if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}}
 
-setInterval(loadAll,60000);
+// ─── SSE: actualizaciones en tiempo real ────────────────────────────────────
+let evtSource = null;
+let sseFailures = 0;
+let pollFallback = null;
+
+function startSSE() {
+  if (evtSource) try { evtSource.close(); } catch(e) {}
+  try {
+    evtSource = new EventSource(API + '/stream?token=' + encodeURIComponent(TOKEN));
+
+    evtSource.addEventListener('connected', () => {
+      sseFailures = 0;
+      setConn(true);
+      // Si había polling de fallback corriendo, detenerlo
+      if (pollFallback) { clearInterval(pollFallback); pollFallback = null; }
+      console.log('[SSE] Conectado en vivo');
+    });
+
+    evtSource.addEventListener('task_changed', (e) => {
+      // Refrescar tareas cuando hay cualquier cambio
+      loadAll();
+    });
+
+    evtSource.onerror = () => {
+      sseFailures++;
+      console.warn('[SSE] Error, falla #' + sseFailures);
+      // Después de 3 fallas, caer a polling cada 30s
+      if (sseFailures >= 3 && !pollFallback) {
+        console.warn('[SSE] Fallback a polling 30s');
+        pollFallback = setInterval(loadAll, 30000);
+      }
+    };
+  } catch(e) {
+    console.error('[SSE] No disponible:', e);
+    if (!pollFallback) pollFallback = setInterval(loadAll, 30000);
+  }
+}
+
+// Reanudar SSE cuando la app vuelve al foreground
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (!evtSource || evtSource.readyState === 2) startSSE();
+    loadAll(); // refresh inmediato al abrir
+  }
+});
+
+
+startSSE();
 loadAll();
 </script>
 </body>
