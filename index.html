@@ -523,6 +523,7 @@ function renderCard(t,delay){
     '<div class="tc-detail '+(isOpen?'open':'')+'" onclick="event.stopPropagation()">'+
     '<div class="dl">'+(isMio?'MI COMPROMISO':isSin?'SIN RESPONDER':'TAREA')+'</div>'+
     '<div class="dtask">'+esc(t.task)+'</div>'+
+    renderActionChips(t)+
     '<div class="dactions">'+actions+'</div>'+
     '</div></div>';
 }
