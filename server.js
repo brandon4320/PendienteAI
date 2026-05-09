@@ -332,8 +332,12 @@ function saveTask(contact, msgs, analysis, contactPhone) {
     }
   }
 
-  // Agregar WhatsApp del contacto una sola vez (fix: había dos bloques redundantes)
-  if (contactPhone && !extractedActions.some(a => a.type === 'whatsapp' || a.type === 'whatsapp_contact')) {
+  // Eliminar links de WhatsApp extraídos del texto — son números mencionados en el mensaje,
+  // no necesariamente el número del contacto. El número real viene de payload.from.
+  for (let i = extractedActions.length - 1; i >= 0; i--) {
+    if (extractedActions[i].type === 'whatsapp') extractedActions.splice(i, 1);
+  }
+  if (contactPhone && !extractedActions.some(a => a.type === 'whatsapp_contact')) {
     extractedActions.unshift({ type: 'whatsapp_contact', value: contactPhone.replace(/\D/g, ''), label: 'WhatsApp' });
   }
 

@@ -569,8 +569,8 @@ function openCalendarGoogle(action,contact){
 function renderActionChips(t){
   const actions=t.actions||[];
   let allActions=[...actions];
-  if(t.phone&&!allActions.some(a=>a.type==='whatsapp_contact'||a.type==='whatsapp')){
-    allActions.push({type:'whatsapp_contact',value:t.phone,label:'Responder en WhatsApp'});
+  if(t.phone&&!allActions.some(a=>a.type==='whatsapp_contact')){
+    allActions.unshift({type:'whatsapp_contact',value:t.phone,label:'Responder en WhatsApp'});
   }
   if(!allActions.length)return'';
   let html='<div class="action-chips">';
