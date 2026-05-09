@@ -659,6 +659,15 @@ app.patch('/tasks/:id/edit', (req, res) => {
   res.sendStatus(200);
 });
 
+app.post('/admin/reset', (req, res) => {
+  const t1 = db.prepare("DELETE FROM tasks").run();
+  const t2 = db.prepare("DELETE FROM conv_history").run();
+  db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('tasks','conv_history')").run();
+  console.log('[RESET] Base limpiada: ' + t1.changes + ' tareas, ' + t2.changes + ' mensajes de historial');
+  sseBroadcast('task_changed', { type: 'reset' });
+  res.json({ ok: true, deletedTasks: t1.changes, deletedHistory: t2.changes });
+});
+
 app.get('/health', (req, res) => {
   const tasks = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
   const hist = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
