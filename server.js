@@ -386,6 +386,10 @@ function saveTask(contact, msgs, analysis, contactPhone) {
   if (phoneFromContact && !extractedActions.some(a => a.type === 'whatsapp')) {
     extractedActions.push({ type: 'whatsapp_contact', value: phoneFromContact, label: 'Responder en WhatsApp' });
   }
+  // Siempre agregar WhatsApp del contacto si tenemos su número
+  if (phoneFromContact && !extractedActions.some(a => a.type === 'whatsapp_contact' || a.type === 'whatsapp')) {
+    extractedActions.unshift({ type: 'whatsapp_contact', value: phoneFromContact.replace(/\D/g,''), label: 'WhatsApp' });
+  }
   const actionsJson = extractedActions.length ? JSON.stringify(extractedActions) : null;
 
   // Validación: confidence mínima de 0.7 para evitar alucinaciones
@@ -560,6 +564,8 @@ app.post('/webhook', async (req, res) => {
     if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null };
     if (burstBuffer[contact].timer) clearTimeout(burstBuffer[contact].timer);
 
+    // Guardar phone del contacto en cache para usar en el análisis async
+    if (contactPhoneNumber) phoneCache[contact] = contactPhoneNumber;
     burstBuffer[contact].timer = setTimeout(() => {
       delete burstBuffer[contact];
 
@@ -674,4 +680,4 @@ app.get('/stream', (req, res) => {
   });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.5 en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.6 en puerto', process.env.PORT || 3001));
