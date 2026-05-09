@@ -521,9 +521,9 @@ app.post('/webhook', async (req, res) => {
     let text = payload.body || '';
     const contact = payload._data?.notifyName || payload.from || '';
     const fromMe = payload.fromMe || false;
-    const rawFrom = (payload.from || '').replace(/@.*$/, '');
-    // Acepta cualquier JID con dígitos (WAHA puede mandar números >15 dígitos en algunos configs)
-    const contactPhoneNumber = /^\d{7,}$/.test(rawFrom) ? rawFrom : null;
+    // Extraer número de teléfono del JID de WAHA — strip @server y cualquier no-dígito
+    const rawFrom = (payload.from || '').replace(/@.*$/, '').replace(/\D/g, '');
+    const contactPhoneNumber = rawFrom.length >= 7 ? rawFrom : null;
     const mediaType = payload._data?.type || payload.type || '';
     const mediaUrl = payload.media?.url || payload._data?.mediaUrl || null;
     const mimetype = payload.media?.mimetype || payload._data?.mimetype || '';
@@ -554,18 +554,23 @@ app.post('/webhook', async (req, res) => {
       }
     }
 
-    if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null, hasIncoming: false, firstTs: Date.now() };
+    if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null, hasIncoming: false, firstTs: Date.now(), phone: null };
     if (burstBuffer[contact].timer) clearTimeout(burstBuffer[contact].timer);
-    if (!fromMe) burstBuffer[contact].hasIncoming = true;
-    if (contactPhoneNumber && !fromMe) setCachedPhone(contact, contactPhoneNumber);
+    if (!fromMe) {
+      burstBuffer[contact].hasIncoming = true;
+      if (contactPhoneNumber) {
+        burstBuffer[contact].phone = contactPhoneNumber;
+        setCachedPhone(contact, contactPhoneNumber);
+      }
+    }
 
     const burstAge = Date.now() - burstBuffer[contact].firstTs;
-    const burstDelay = burstAge > 90000 ? 500 : 20000; // forzar flush si la conv supera 90s
+    const burstDelay = burstAge > 90000 ? 500 : 20000;
 
     burstBuffer[contact].timer = setTimeout(() => {
-      const { hasIncoming } = burstBuffer[contact];
+      const { hasIncoming, phone } = burstBuffer[contact];
       delete burstBuffer[contact];
-      if (!hasIncoming) return; // solo mensajes propios — no hay nada que analizar
+      if (!hasIncoming) return;
       enqueue(async () => {
         try {
           const history = getRecentHistory(contact);
@@ -574,9 +579,9 @@ app.post('/webhook', async (req, res) => {
           const analysis = await analyzeWithRetry(contact, history);
           console.log('[ANALYSIS] ' + contact + ': needsAction=' + analysis.needsAction + ' priority=' + analysis.priority + ' type=' + analysis.type + ' task="' + analysis.task + '"');
           if (analysis.needsAction) {
-            saveTask(contact, history, analysis, getCachedPhone(contact));
+            saveTask(contact, history, analysis, phone || getCachedPhone(contact));
           }
-          if (lastIsFromOther) scheduleSinResponder(contact, history, analysis, getCachedPhone(contact));
+          if (lastIsFromOther) scheduleSinResponder(contact, history, analysis, phone || getCachedPhone(contact));
         } catch(e) { console.error('Analysis error [' + contact + ']:', e.message); }
       });
     }, burstDelay);
