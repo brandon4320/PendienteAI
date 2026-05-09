@@ -72,6 +72,8 @@ db.exec(`
 const cols = db.pragma('table_info(tasks)').map(c => c.name);
 if (!cols.includes('type')) db.exec("ALTER TABLE tasks ADD COLUMN type TEXT DEFAULT 'pendiente'");
 if (!cols.includes('from_me')) db.exec("ALTER TABLE tasks ADD COLUMN from_me INTEGER DEFAULT 0");
+if (!cols.includes('actions')) db.exec("ALTER TABLE tasks ADD COLUMN actions TEXT");
+if (!cols.includes('phone')) db.exec("ALTER TABLE tasks ADD COLUMN phone TEXT");
 if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
 // Fix task null: actualizar registros con task null o vacío
 db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();
@@ -109,6 +111,86 @@ function consolidateDuplicates() {
   }
 }
 consolidateDuplicates();
+
+// ─── EXTRACCIÓN DE ACCIONES CONTEXTUALES ──────────────────────────────────────
+// Extrae datos estructurados con regex desde el texto real (anti-alucinación)
+function extractActions(messages) {
+  const text = messages.map(m => m.text || '').join(' ');
+  const actions = [];
+  const seen = new Set();
+
+  // Teléfonos AR (móvil/fijo, con o sin +54, con o sin 9, con guiones/espacios)
+  const phoneRegex = /(?:\+?54)?\s?9?\s?(?:11|2\d{2}|3\d{2})[\s\-]?\d{3,4}[\s\-]?\d{4}/g;
+  const phones = text.match(phoneRegex) || [];
+  for (const p of phones) {
+    const clean = p.replace(/[^0-9+]/g, '');
+    if (clean.length >= 10 && !seen.has('phone:'+clean)) {
+      seen.add('phone:'+clean);
+      // Normalizar a formato internacional
+      let normalized = clean;
+      if (!normalized.startsWith('+')) {
+        if (normalized.startsWith('54')) normalized = '+' + normalized;
+        else if (normalized.startsWith('9')) normalized = '+54' + normalized;
+        else normalized = '+549' + normalized;
+      }
+      actions.push({ type: 'phone', value: normalized, label: p.trim() });
+      actions.push({ type: 'whatsapp', value: normalized.replace(/\D/g,''), label: 'WhatsApp directo' });
+    }
+  }
+
+  // Emails
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  const emails = text.match(emailRegex) || [];
+  for (const e of emails) {
+    if (!seen.has('email:'+e)) {
+      seen.add('email:'+e);
+      actions.push({ type: 'email', value: e, label: e });
+    }
+  }
+
+  // CBU: 22 dígitos consecutivos
+  const cbuRegex = /\b\d{22}\b/g;
+  const cbus = text.match(cbuRegex) || [];
+  for (const c of cbus) {
+    if (!seen.has('cbu:'+c)) {
+      seen.add('cbu:'+c);
+      actions.push({ type: 'cbu', value: c, label: 'CBU: '+c.slice(0,4)+'...'+c.slice(-4) });
+    }
+  }
+
+  // Alias: 6-20 chars con al menos un punto, letras y/o números
+  const aliasRegex = /\b[a-zA-Z0-9]+\.[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*\b/g;
+  const aliasCandidates = text.match(aliasRegex) || [];
+  for (const a of aliasCandidates) {
+    // Filtrar: no debe ser email, no debe ser dominio común, debe tener 6-20 chars
+    if (a.length < 6 || a.length > 20) continue;
+    if (a.includes('@')) continue;
+    if (/\.(com|ar|net|org|io|co|app|gov|edu)$/i.test(a)) continue;
+    if (a.startsWith('.') || a.endsWith('.')) continue;
+    // Solo si la palabra "alias" aparece cerca o no es un dominio conocido
+    const ctx = text.toLowerCase();
+    const idxOf = ctx.indexOf(a.toLowerCase());
+    const around = ctx.slice(Math.max(0,idxOf-30), idxOf+a.length+30);
+    if (!/alias|cbu|transferencia|cuenta|cvu|mercadop|pago/i.test(around)) continue;
+    if (!seen.has('alias:'+a)) {
+      seen.add('alias:'+a);
+      actions.push({ type: 'alias', value: a, label: 'Alias: '+a });
+    }
+  }
+
+  // Direcciones: detección básica (calle + número, palabras clave)
+  const addressRegex = /(?:Av(?:enida)?\.?|Calle|Ruta)\s+[\w\s]+\d+(?:[,\s]+[\w\s]+)?/gi;
+  const addresses = text.match(addressRegex) || [];
+  for (const a of addresses) {
+    if (a.length < 8 || a.length > 100) continue;
+    if (!seen.has('addr:'+a)) {
+      seen.add('addr:'+a);
+      actions.push({ type: 'address', value: a.trim(), label: a.trim().slice(0, 40) });
+    }
+  }
+
+  return actions;
+}
 
 // ─── COLA DE PROCESAMIENTO ────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -191,7 +273,8 @@ function getRecentHistory(contact) {
 }
 
 // ─── GROQ ─────────────────────────────────────────────────────────────────────
-let burstBuffer = {}; // solo para el timer de 20s
+let burstBuffer = {};
+let phoneCache = {}; // contact → phone number // solo para el timer de 20s
 
 async function analyzeConversation(contact, messages) {
   const now = new Date();
@@ -257,8 +340,26 @@ Respondé SOLO JSON:
   }
 }
 
-function saveTask(contact, msgs, analysis) {
+function saveTask(contact, msgs, analysis, contactPhone) {
   if (!analysis.needsAction || analysis.priority === 'ignorar') return;
+  
+  // Extraer acciones contextuales con regex (validadas, no alucinadas)
+  const extractedActions = extractActions(msgs);
+  // Si la IA mandó actions también, mezclamos solo las que validemos
+  if (Array.isArray(analysis.actions)) {
+    for (const a of analysis.actions) {
+      if (a.type === 'calendar' && (a.date || a.time)) {
+        // Solo agregar calendar si tiene fecha o hora real
+        extractedActions.push(a);
+      }
+    }
+  }
+  // Siempre agregar acción WhatsApp del contacto si tenemos su número
+  const phoneFromContact = contactPhone || null;
+  if (phoneFromContact && !extractedActions.some(a => a.type === 'whatsapp')) {
+    extractedActions.push({ type: 'whatsapp_contact', value: phoneFromContact, label: 'Responder en WhatsApp' });
+  }
+  const actionsJson = extractedActions.length ? JSON.stringify(extractedActions) : null;
 
   // Validación: confidence mínima de 0.7 para evitar alucinaciones
   if (analysis.confidence !== undefined && analysis.confidence < 0.7) {
@@ -293,10 +394,11 @@ function saveTask(contact, msgs, analysis) {
     const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='mio' LIMIT 1").get(contact);
     if (existing) {
       db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
-        meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
+        meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0,80),keyMsg,safeTask,analysis.priority||'hoy',
           analysis.urgent?1:0,analysis.category||'personal',
-          meeting?.date||null,meeting?.time||null,meeting?.location||null,existing.id);
+          meeting?.date||null,meeting?.time||null,meeting?.location||null,
+          actionsJson,phoneFromContact,existing.id);
       console.log('[MIO-UPDATE] '+contact+': '+safeTask);
       return;
     }
@@ -308,10 +410,11 @@ function saveTask(contact, msgs, analysis) {
     `).get(contact);
     if (recent) {
       db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
-        meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
+        meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0,80),keyMsg,safeTask,analysis.priority||'hoy',
           analysis.urgent?1:0,analysis.category||'personal',
-          meeting?.date||null,meeting?.time||null,meeting?.location||null,recent.id);
+          meeting?.date||null,meeting?.time||null,meeting?.location||null,
+          actionsJson,phoneFromContact,recent.id);
       console.log('[PENDIENTE-UPDATE] '+contact+': '+safeTask);
       return;
     }
@@ -373,6 +476,9 @@ app.post('/webhook', async (req, res) => {
     let text = payload.body || '';
     const contact = payload._data?.notifyName || payload.from || '';
     const fromMe = payload.fromMe || false;
+    // Extraer número de teléfono del contacto (ej: 5491112345678@c.us → +5491112345678)
+    const rawFrom = (payload.from || '').replace(/@.*$/, '');
+    const contactPhoneNumber = /^\d{10,15}$/.test(rawFrom) ? '+' + rawFrom : null;
     const hasMedia = payload.hasMedia || false;
     const mediaType = payload._data?.type || payload.type || '';
     const mediaUrl = payload.media?.url || payload._data?.mediaUrl || null;
@@ -421,7 +527,7 @@ app.post('/webhook', async (req, res) => {
           // Analizar para tareas y compromisos
           const analysis = await analyzeConversation(contact, history);
           if (analysis.needsAction && analysis.priority !== 'ignorar') {
-            saveTask(contact, history, analysis);
+            saveTask(contact, history, analysis, phoneCache[contact] || null);
           }
 
           // Sin responder: solo si el último mensaje es del otro, programar para 1 hora después
@@ -450,6 +556,8 @@ app.get('/tasks', (req, res) => {
     task:t.task, priority:t.priority,
     urgent:t.urgent===1, category:t.category, type:t.type, fromMe:t.from_me===1,
     meeting:t.meeting_date||t.meeting_time?{date:t.meeting_date,time:t.meeting_time,location:t.meeting_location}:null,
+    actions: t.actions ? (function(){ try { return JSON.parse(t.actions); } catch(e) { return []; } })() : [],
+    phone: t.phone || null,
     hours:t.hours||0, createdAt:t.created_at,
   })));
 });
