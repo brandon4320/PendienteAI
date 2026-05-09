@@ -85,6 +85,31 @@ const n3 = new Date(); n3.setHours(3,0,0,0);
 if (n3 <= new Date()) n3.setDate(n3.getDate()+1);
 setTimeout(()=>{cleanOldData();setInterval(cleanOldData,86400000);},n3-new Date());
 
+
+// Limpieza inicial: consolidar duplicados existentes en pendiente
+function consolidateDuplicates() {
+  const dups = db.prepare(`
+    SELECT contact, COUNT(*) as n FROM tasks
+    WHERE status='pending' AND type='pendiente'
+    GROUP BY contact HAVING n > 1
+  `).all();
+  for (const d of dups) {
+    // Mantener solo la más reciente, marcar el resto como resueltas
+    const keep = db.prepare(`
+      SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='pendiente'
+      ORDER BY created_at DESC LIMIT 1
+    `).get(d.contact);
+    if (keep) {
+      const r = db.prepare(`
+        UPDATE tasks SET status='resolved', resolved_at=CURRENT_TIMESTAMP
+        WHERE contact=? AND status='pending' AND type='pendiente' AND id != ?
+      `).run(d.contact, keep.id);
+      console.log('[CONSOLIDATE] ' + d.contact + ': ' + r.changes + ' duplicados resueltos');
+    }
+  }
+}
+consolidateDuplicates();
+
 // ─── COLA DE PROCESAMIENTO ────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
