@@ -80,8 +80,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cg-cnt{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted2)}
 
 /* TASK CARD */
-.tcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:5px;overflow:hidden;cursor:pointer;animation:si 0.18s ease forwards;opacity:0;transform:translateY(3px);box-shadow:0 1px 2px rgba(0,0,0,0.04)}
-@keyframes si{to{opacity:1;transform:none}}
+.tcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:5px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
 
 /* Barra lateral de color según prioridad */
 .tcard.pr1{border-left:3px solid var(--p1)}
@@ -326,7 +325,7 @@ function renderCard(t,delay){
             '<button class="btn-zz" onclick="snooze('+t.id+')">😴</button>'+
             '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
   }
-  return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" style="animation-delay:'+delay*30+'ms">'+
+  return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')">'+
     '<div class="tc-top">'+
     '<div class="prio-dot '+pc.dot+'"></div>'+
     '<div class="tc-body">'+
