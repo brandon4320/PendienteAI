@@ -326,14 +326,20 @@ function saveTask(contact, msgs, analysis, contactPhone) {
   if (!analysis.needsAction || analysis.priority === 'ignorar') return;
 
   const extractedActions = extractActions(msgs);
-  if (Array.isArray(analysis.actions)) {
-    for (const a of analysis.actions) {
-      if (a.type === 'calendar' && (a.date || a.time)) extractedActions.push(a);
-    }
+  const meeting = (analysis.meeting?.date || analysis.meeting?.time) ? analysis.meeting : null;
+
+  // Chip de calendario: se genera automáticamente si la IA detectó una reunión/cita
+  if (meeting && !extractedActions.some(a => a.type === 'calendar')) {
+    extractedActions.push({
+      type: 'calendar',
+      title: (analysis.task || '').slice(0, 60),
+      date: meeting.date || null,
+      time: meeting.time || null,
+      location: meeting.location || null,
+    });
   }
 
-  // Eliminar links de WhatsApp extraídos del texto — son números mencionados en el mensaje,
-  // no necesariamente el número del contacto. El número real viene de payload.from.
+  // WhatsApp: siempre usar el número del contacto de WAHA (payload.from), no el del texto
   for (let i = extractedActions.length - 1; i >= 0; i--) {
     if (extractedActions[i].type === 'whatsapp') extractedActions.splice(i, 1);
   }
@@ -356,7 +362,6 @@ function saveTask(contact, msgs, analysis, contactPhone) {
     return;
   }
 
-  const meeting = (analysis.meeting?.date || analysis.meeting?.time) ? analysis.meeting : null;
   const type = analysis.type || 'pendiente';
   const lastMsg = msgs[msgs.length - 1]?.text || '';
   const keyMsg = (analysis.keyMessage || lastMsg).slice(0, 150);
@@ -494,7 +499,8 @@ app.post('/webhook', async (req, res) => {
     const contact = payload._data?.notifyName || payload.from || '';
     const fromMe = payload.fromMe || false;
     const rawFrom = (payload.from || '').replace(/@.*$/, '');
-    const contactPhoneNumber = /^\d{10,15}$/.test(rawFrom) ? '+' + rawFrom : null;
+    // Acepta cualquier JID con dígitos (WAHA puede mandar números >15 dígitos en algunos configs)
+    const contactPhoneNumber = /^\d{7,}$/.test(rawFrom) ? rawFrom : null;
     const mediaType = payload._data?.type || payload.type || '';
     const mediaUrl = payload.media?.url || payload._data?.mediaUrl || null;
     const mimetype = payload.media?.mimetype || payload._data?.mimetype || '';
