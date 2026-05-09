@@ -16,7 +16,10 @@ function authMiddleware(req, res, next) {
   next();
 }
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = ['https://pendienteia.vercel.app','http://localhost:3000'];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) res.header('Access-Control-Allow-Origin', origin);
+  else if (!origin) res.header('Access-Control-Allow-Origin', '*'); // WAHA/server calls sin origin
   res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, X-Api-Token');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
@@ -53,6 +56,13 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_conv_contact ON conv_history(contact, created_at);
+  CREATE TABLE IF NOT EXISTS sin_responder_pending (
+    contact TEXT PRIMARY KEY,
+    last_msg TEXT,
+    key_message TEXT,
+    category TEXT DEFAULT 'personal',
+    scheduled_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
   CREATE INDEX IF NOT EXISTS idx_type ON tasks(type);
   CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
@@ -275,12 +285,9 @@ app.post('/webhook', async (req, res) => {
     saveToHistory(contact, text, fromMe);
 
     if (fromMe) {
-      // Brandon respondió → limpiar sin_responder y cancelar timer pendiente
+      // Brandon respondió → limpiar sin_responder activo y pending de SQLite
       db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE contact=? AND type='sin_responder' AND status='pending'").run(contact);
-      if (sinResponderPending[contact]?.timer) {
-        clearTimeout(sinResponderPending[contact].timer);
-        delete sinResponderPending[contact];
-      }
+      db.prepare("DELETE FROM sin_responder_pending WHERE contact=?").run(contact);
     }
 
     // Resetear timer de burst (20s de silencio antes de analizar)
@@ -349,7 +356,7 @@ app.patch('/tasks/:id/keep', (req, res) => {
 app.get('/health', (req, res) => {
   const tasks = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
   const hist = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
-  res.json({ status:'ok', pendingTasks:tasks.n, queueLength:queue.length, historyMsgs:hist.n, sinResponderPending:Object.keys(sinResponderPending).length });
+  res.json({ status:'ok', pendingTasks:tasks.n, queueLength:queue.length, historyMsgs:hist.n, sinResponderPending:db.prepare("SELECT COUNT(*) as n FROM sin_responder_pending").get().n });
 });
 
 app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.3 en puerto', process.env.PORT || 3001));
