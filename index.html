@@ -121,6 +121,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .btn-edit{padding:10px 12px;background:var(--card);border:1px solid var(--blue-b);color:var(--blue);border-radius:9px;font-size:12px;cursor:pointer}
 .btn-x{padding:10px 12px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:9px;font-size:12px;cursor:pointer}
 
+
+/* CHIPS DE ACCIONES CONTEXTUALES */
+.action-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.achip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;text-decoration:none;transition:transform 0.1s, opacity 0.1s;white-space:nowrap}
+.achip:active{transform:scale(0.96);opacity:0.85}
+.achip-cal{background:#f5f3ff;color:var(--purple);border-color:#ddd6fe}
+.achip-tel{background:#f0fdf4;color:var(--green);border-color:#bbf7d0}
+.achip-mail{background:#eff6ff;color:var(--blue);border-color:#bfdbfe}
+.achip-cbu{background:#fffbeb;color:var(--amber);border-color:#fde68a}
+.achip-alias{background:#fffbeb;color:var(--amber);border-color:#fde68a}
+.achip-addr{background:#fef2f2;color:var(--red);border-color:#fecaca}
+.achip-wa{background:#ecfdf5;color:#059669;border-color:#a7f3d0}
+.achip-icon{font-size:13px;line-height:1}
+
 /* MODAL EDITAR */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
 .modal-overlay.show{display:flex}
@@ -396,6 +410,82 @@ function renderGroup(g,gi){
   g.tasks.forEach((t,i)=>{html+=renderCard(t,gi*10+i);});
   return html+'</div>';
 }
+
+
+// ─── ACCIONES CONTEXTUALES ────────────────────────────────────────────────────
+function copyToClipboard(text, label) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast('📋 ' + (label || 'Copiado'));
+  }).catch(() => {
+    // Fallback para iOS antiguo
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('📋 ' + (label || 'Copiado')); }
+    catch(e) { toast('Error al copiar'); }
+    document.body.removeChild(ta);
+  });
+}
+
+function openCalendarGoogle(action, contact) {
+  // Construir link de Google Calendar
+  const title = encodeURIComponent(action.title || ('Evento con ' + contact));
+  let dt = '';
+  if (action.date && action.time) {
+    // YYYY-MM-DD + HH:MM → YYYYMMDDTHHMMSS
+    const d = action.date.replace(/-/g,'');
+    const t = (action.time + ':00').replace(/:/g,'').slice(0,6);
+    // Asumir 1 hora de duración
+    const startDT = d + 'T' + t;
+    const endHour = String((parseInt(t.slice(0,2)) + 1) % 24).padStart(2,'0');
+    const endDT = d + 'T' + endHour + t.slice(2);
+    dt = '&dates=' + startDT + '/' + endDT;
+  } else if (action.date) {
+    const d = action.date.replace(/-/g,'');
+    dt = '&dates=' + d + '/' + d;
+  }
+  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + title + dt;
+  window.open(url, '_blank');
+}
+
+function renderActionChips(t) {
+  const actions = t.actions || [];
+  // Siempre incluir WhatsApp del contacto si tenemos el número
+  let allActions = [...actions];
+  if (t.phone && !allActions.some(a => a.type === 'whatsapp_contact' || a.type === 'whatsapp')) {
+    allActions.push({ type: 'whatsapp_contact', value: t.phone, label: 'Responder en WhatsApp' });
+  }
+  if (!allActions.length) return '';
+
+  let html = '<div class="action-chips">';
+  for (const a of allActions) {
+    const safeVal = (a.value || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    const safeLabel = (a.label || '').replace(/[<>"]/g, '');
+    
+    if (a.type === 'phone') {
+      html += '<a class="achip achip-tel" href="tel:'+a.value+'"><span class="achip-icon">📞</span>Llamar</a>';
+    } else if (a.type === 'whatsapp' || a.type === 'whatsapp_contact') {
+      const num = a.value.replace(/\D/g, '');
+      html += '<a class="achip achip-wa" href="https://wa.me/'+num+'" target="_blank"><span class="achip-icon">💬</span>WhatsApp</a>';
+    } else if (a.type === 'email') {
+      html += '<a class="achip achip-mail" href="mailto:'+a.value+'"><span class="achip-icon">✉️</span>Mail</a>';
+    } else if (a.type === 'cbu') {
+      html += '<button class="achip achip-cbu" onclick="event.stopPropagation();copyToClipboard(\''+safeVal+'\', \'CBU copiado\')"><span class="achip-icon">💸</span>Copiar CBU</button>';
+    } else if (a.type === 'alias') {
+      html += '<button class="achip achip-alias" onclick="event.stopPropagation();copyToClipboard(\''+safeVal+'\', \'Alias copiado\')"><span class="achip-icon">💸</span>Copiar Alias</button>';
+    } else if (a.type === 'address') {
+      const enc = encodeURIComponent(a.value);
+      html += '<a class="achip achip-addr" href="https://maps.google.com/?q='+enc+'" target="_blank"><span class="achip-icon">📍</span>Maps</a>';
+    } else if (a.type === 'calendar') {
+      const json = JSON.stringify(a).replace(/"/g,'&quot;');
+      html += '<button class="achip achip-cal" onclick="event.stopPropagation();openCalendarGoogle('+JSON.stringify(a).replace(/"/g,'&quot;')+', \''+(t.contact||'').replace(/'/g,"\\'") + '\')"><span class="achip-icon">📅</span>Agendar</button>';
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
 
 function renderCard(t,delay){
   const isOpen=expanded===t.id;
