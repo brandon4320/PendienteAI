@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>PendienteAI</title>
@@ -20,13 +20,19 @@
   --purple:#7c3aed;--purple-bg:#f5f3ff;--purple-b:#ddd6fe;
   --orange:#ea580c;--orange-bg:#fff7ed;--orange-b:#fed7aa;
   --font:'Inter',sans-serif;--mono:'DM Mono',monospace;
-  /* PRIORIDADES: 3 colores */
-  --p1:#dc2626; --p1-bg:#fef2f2; --p1-b:#fecaca;  /* URGENTE - rojo */
-  --p2:#d97706; --p2-bg:#fffbeb; --p2-b:#fde68a;  /* MEDIA - amber */
-  --p3:#2563eb; --p3-bg:#eff6ff; --p3-b:#bfdbfe;  /* BAJA - azul */
+  --p1:#dc2626;--p1-bg:#fef2f2;--p1-b:#fecaca;
+  --p2:#d97706;--p2-bg:#fffbeb;--p2-b:#fde68a;
+  --p3:#2563eb;--p3-bg:#eff6ff;--p3-b:#bfdbfe;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 .app{width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* LOGIN */
+.login-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;padding:24px}
+.login-box{background:var(--card);border-radius:16px;padding:28px;width:100%;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+.login-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.login-err{color:var(--red);font-size:12px;margin-top:10px;text-align:center;min-height:16px}
 
 /* HEADER */
 .hdr{padding:max(env(safe-area-inset-top),14px) 16px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border)}
@@ -49,7 +55,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .bcount.purple{background:var(--purple);color:white}
 .bcount.orange{background:var(--orange);color:white}
 
-/* TOOLBAR: filtro Trabajo / Personal + refresh */
+/* TOOLBAR */
 .toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
 .cat-pills{display:flex;gap:6px;flex:1}
 .cpill{padding:5px 14px;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:20px;background:transparent;transition:all 0.15s}
@@ -63,11 +69,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* CONTENT */
 .content{flex:1;overflow-y:auto;padding:10px 14px 32px;background:var(--bg)}
 
-/* SECCIÓN trabajo / personal */
+/* SECCIÓN */
 .section-hdr{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
 .section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
 
-/* GRUPO por contacto */
+/* GRUPO */
 .cgroup{margin-bottom:10px}
 .cg-hdr{display:flex;align-items:center;gap:8px;padding:4px 2px}
 .cg-av{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:var(--mono)}
@@ -81,14 +87,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* TASK CARD */
 .tcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:5px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
-
-/* Barra lateral de color según prioridad */
 .tcard.pr1{border-left:3px solid var(--p1)}
 .tcard.pr2{border-left:3px solid var(--p2)}
 .tcard.pr3{border-left:3px solid var(--p3)}
 .tcard.pr-sin{border-left:3px solid var(--purple)}
 .tcard.pr-mio{border-left:3px solid var(--orange)}
-
 .tc-top{display:flex;align-items:center;gap:10px;padding:11px 13px}
 .tc-body{flex:1;min-width:0}
 .tc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
@@ -121,10 +124,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .btn-edit{padding:10px 12px;background:var(--card);border:1px solid var(--blue-b);color:var(--blue);border-radius:9px;font-size:12px;cursor:pointer}
 .btn-x{padding:10px 12px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:9px;font-size:12px;cursor:pointer}
 
-
-/* CHIPS DE ACCIONES CONTEXTUALES */
+/* CHIPS */
 .action-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.achip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;text-decoration:none;transition:transform 0.1s, opacity 0.1s;white-space:nowrap}
+.achip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;text-decoration:none;transition:transform 0.1s,opacity 0.1s;white-space:nowrap}
 .achip:active{transform:scale(0.96);opacity:0.85}
 .achip-cal{background:#f5f3ff;color:var(--purple);border-color:#ddd6fe}
 .achip-tel{background:#f0fdf4;color:var(--green);border-color:#bbf7d0}
@@ -135,7 +137,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .achip-wa{background:#ecfdf5;color:#059669;border-color:#a7f3d0}
 .achip-icon{font-size:13px;line-height:1}
 
-/* MODAL EDITAR */
+/* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
 .modal-overlay.show{display:flex}
 .modal{background:var(--card);border-radius:14px;padding:20px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
@@ -167,6 +169,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </style>
 </head>
 <body>
+
+<!-- LOGIN: visible si no hay token en sessionStorage -->
+<div class="login-overlay" id="loginScreen" role="dialog" aria-modal="true" aria-label="Iniciar sesión">
+  <div class="login-box">
+    <div class="login-title">Pendiente<span style="color:var(--green)">AI</span></div>
+    <div class="login-sub">Ingresá tu token de acceso</div>
+    <input type="password" class="modal-input" id="loginToken" placeholder="Token" autocomplete="current-password" style="margin-bottom:8px" />
+    <button type="button" class="btn-save" style="width:100%" onclick="doLogin()">Entrar</button>
+    <div class="login-err" id="loginErr" role="alert" aria-live="polite"></div>
+  </div>
+</div>
+
 <div class="app">
   <div class="hdr">
     <div class="hdr-top">
@@ -174,26 +188,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
     </div>
     <div class="btabs">
-      <button class="bt active" onclick="setBandeja('pendiente',this)">
-        📥 Pendientes <span class="bcount red" id="bc-p">0</span>
+      <button type="button" class="bt active" onclick="setBandeja('pendiente',this)">
+        📥 Pendientes <span class="bcount red" id="bc-p" style="display:none">0</span>
       </button>
-      <button class="bt sin" onclick="setBandeja('sin_responder',this)">
-        👁️ Sin resp. <span class="bcount purple" id="bc-s">0</span>
+      <button type="button" class="bt sin" onclick="setBandeja('sin_responder',this)">
+        👁️ Sin resp. <span class="bcount purple" id="bc-s" style="display:none">0</span>
       </button>
-      <button class="bt mio" onclick="setBandeja('mio',this)">
-        ✅ Mis comp. <span class="bcount orange" id="bc-m">0</span>
+      <button type="button" class="bt mio" onclick="setBandeja('mio',this)">
+        ✅ Mis comp. <span class="bcount orange" id="bc-m" style="display:none">0</span>
       </button>
     </div>
   </div>
 
   <div class="toolbar">
     <div class="cat-pills">
-      <button class="cpill active" onclick="setCat('all',this)">Todos</button>
-      <button class="cpill w" onclick="setCat('trabajo',this)">💼 Trabajo</button>
-      <button class="cpill p" onclick="setCat('personal',this)">👥 Personal</button>
+      <button type="button" class="cpill active" onclick="setCat('all',this)">Todos</button>
+      <button type="button" class="cpill w" onclick="setCat('trabajo',this)">💼 Trabajo</button>
+      <button type="button" class="cpill p" onclick="setCat('personal',this)">👥 Personal</button>
     </div>
-    <button class="btn-refresh" id="scanBtn" onclick="loadAll()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+    <button type="button" class="btn-refresh" id="scanBtn" onclick="loadAll()" aria-label="Actualizar tareas">
+      <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
     </button>
   </div>
 
@@ -203,47 +217,98 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <!-- MODAL EDITAR -->
-<div class="modal-overlay" id="editModal">
-  <div class="modal">
-    <div class="modal-title">✏️ Editar tarea</div>
-    <label class="modal-label">Descripción</label>
+<div class="modal-overlay" id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" onclick="closeEdit()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="editModalTitle">✏️ Editar tarea</div>
+    <label class="modal-label" for="editText">Descripción</label>
     <input type="text" class="modal-input" id="editText" maxlength="200" />
     <label class="modal-label">Prioridad</label>
     <div class="modal-prio">
-      <button class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)">🔴 Urgente</button>
-      <button class="mp p2" data-p="hoy" onclick="setEditPrio('hoy',this)">🟡 Media</button>
-      <button class="mp p3" data-p="semana" onclick="setEditPrio('semana',this)">🔵 Baja</button>
+      <button type="button" class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)">🔴 Urgente</button>
+      <button type="button" class="mp p2" data-p="hoy" onclick="setEditPrio('hoy',this)">🟡 Media</button>
+      <button type="button" class="mp p3" data-p="semana" onclick="setEditPrio('semana',this)">🔵 Baja</button>
     </div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeEdit()">Cancelar</button>
-      <button class="btn-save" onclick="saveEdit()">Guardar</button>
+      <button type="button" class="btn-cancel" onclick="closeEdit()">Cancelar</button>
+      <button type="button" class="btn-save" onclick="saveEdit()">Guardar</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"><span id="toastTxt"></span></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastTxt"></span></div>
 
 <script>
 const API='https://pendiente.transtidefreight.com';
-const TOKEN='pendiente2024secret';
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let TOKEN=sessionStorage.getItem('pai_token')||'';
 
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+const esc=escHtml;
 
-function apiFetch(url,opts={}){return fetch(url,{...opts,headers:{...opts.headers,'X-Api-Token':TOKEN}});}
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+const loginScreen=document.getElementById('loginScreen');
+if(TOKEN)loginScreen.style.display='none';
+
+document.getElementById('loginToken').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+function doLogin(){
+  const t=document.getElementById('loginToken').value.trim();
+  const errEl=document.getElementById('loginErr');
+  if(!t){errEl.textContent='Ingresá el token';return;}
+  TOKEN=t;
+  sessionStorage.setItem('pai_token',TOKEN);
+  errEl.textContent='';
+  loginScreen.style.display='none';
+  startSSE();
+  loadAll();
+}
+function showLogin(msg){
+  TOKEN='';
+  sessionStorage.removeItem('pai_token');
+  document.getElementById('loginToken').value='';
+  document.getElementById('loginErr').textContent=msg||'';
+  loginScreen.style.display='flex';
+  setTimeout(()=>document.getElementById('loginToken').focus(),50);
+}
+
+// ── API FETCH ─────────────────────────────────────────────────────────────────
+function apiFetch(url,opts={}){
+  return fetch(url,{...opts,headers:{...opts.headers,'X-Api-Token':TOKEN}}).then(r=>{
+    if(r.status===401){showLogin('Token incorrecto');throw new Error('401');}
+    return r;
+  });
+}
 
 let data={pendiente:[],sin_responder:[],mio:[]};
 let expanded=null,catFilter='all',bandeja='pendiente';
 
 let tt;
-function toast(t){const el=document.getElementById('toast');document.getElementById('toastTxt').textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2400);}
-function setConn(ok){document.getElementById('dot').className='dot'+(ok?'':' off');document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';}
+function toast(t){
+  const el=document.getElementById('toast');
+  document.getElementById('toastTxt').textContent=t;
+  el.classList.add('show');clearTimeout(tt);
+  tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
+function setConn(ok){
+  document.getElementById('dot').className='dot'+(ok?'':' off');
+  document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';
+}
 
-function setBandeja(b,btn){bandeja=b;expanded=null;document.querySelectorAll('.bt').forEach(x=>x.classList.remove('active'));btn.classList.add('active');renderTasks();}
-function setCat(c,btn){catFilter=c;document.querySelectorAll('.cpill').forEach(x=>x.classList.remove('active'));btn.classList.add('active');renderTasks();}
+function setBandeja(b,btn){
+  bandeja=b;expanded=null;
+  document.querySelectorAll('.bt').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderTasks();
+}
+function setCat(c,btn){
+  catFilter=c;
+  document.querySelectorAll('.cpill').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderTasks();
+}
 
 async function loadAll(){
-  const btn=document.getElementById('scanBtn');
-  btn.innerHTML='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
+  const icon=document.getElementById('refreshIcon');
+  icon.classList.add('spin');
   try{
     const [r1,r2,r3]=await Promise.all([
       apiFetch(API+'/tasks?type=pendiente'),
@@ -254,21 +319,20 @@ async function loadAll(){
     data.sin_responder=await r2.json();
     data.mio=await r3.json();
     setConn(true);
-    document.getElementById('bc-p').textContent=data.pendiente.length;
-    document.getElementById('bc-s').textContent=data.sin_responder.length;
-    document.getElementById('bc-m').textContent=data.mio.length;
+    updateBadges();
     renderTasks();
   }catch(e){
+    if(e.message==='401')return;
     setConn(false);
-    document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+e.message+'</small></div>';
+    document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+escHtml(e.message)+'</small></div>';
   }finally{
-    btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
+    icon.classList.remove('spin');
   }
 }
 
 async function delTask(id){
   try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}
-  for(const k of Object.keys(data)) data[k]=data[k].filter(t=>t.id!=id);
+  for(const k of Object.keys(data))data[k]=data[k].filter(t=>t.id!=id);
   updateBadges();renderTasks();
 }
 async function snooze(id){
@@ -282,92 +346,92 @@ async function keepTask(id){
   if(t){t.type='pendiente';data.pendiente.push(t);data.sin_responder=data.sin_responder.filter(x=>x.id!=id);}
   updateBadges();renderTasks();toast('📥 Movido a Pendientes');
 }
-let editingId = null;
-let editingPrio = 'hoy';
-function editTask(id){
-  event.stopPropagation();
-  let task = null;
-  for (const k of Object.keys(data)) {
-    const t = data[k].find(x => x.id == id);
-    if (t) { task = t; break; }
-  }
-  if (!task) return;
-  editingId = id;
-  editingPrio = task.priority || 'hoy';
-  document.getElementById('editText').value = task.task || '';
-  // Marcar prioridad activa
-  document.querySelectorAll('.mp').forEach(b => {
-    b.classList.toggle('active', b.dataset.p === editingPrio);
-  });
+
+let editingId=null,editingPrio='hoy';
+function editTask(e,id){
+  e.stopPropagation();
+  let task=null;
+  for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==id);if(t){task=t;break;}}
+  if(!task)return;
+  editingId=id;
+  editingPrio=task.priority||'hoy';
+  document.getElementById('editText').value=task.task||'';
+  document.querySelectorAll('.mp').forEach(b=>b.classList.toggle('active',b.dataset.p===editingPrio));
   document.getElementById('editModal').classList.add('show');
-  setTimeout(() => document.getElementById('editText').focus(), 100);
+  setTimeout(()=>document.getElementById('editText').focus(),100);
 }
-function setEditPrio(p, btn){
-  editingPrio = p;
-  document.querySelectorAll('.mp').forEach(b => b.classList.remove('active'));
+function setEditPrio(p,btn){
+  editingPrio=p;
+  document.querySelectorAll('.mp').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 }
 function closeEdit(){
   document.getElementById('editModal').classList.remove('show');
-  editingId = null;
+  editingId=null;
 }
 async function saveEdit(){
-  if (!editingId) return;
-  const newTask = document.getElementById('editText').value.trim();
-  if (newTask.length < 2) { toast('Texto muy corto'); return; }
-  try {
-    const r = await apiFetch(API+'/tasks/'+editingId+'/edit', {
-      method: 'PATCH',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ task: newTask, priority: editingPrio })
+  if(!editingId)return;
+  const newTask=document.getElementById('editText').value.trim();
+  if(newTask.length<2){toast('Texto muy corto');return;}
+  try{
+    const r=await apiFetch(API+'/tasks/'+editingId+'/edit',{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:newTask,priority:editingPrio})
     });
-    if (!r.ok) throw new Error('save failed');
-    // Actualizar en local
-    for (const k of Object.keys(data)) {
-      const t = data[k].find(x => x.id == editingId);
-      if (t) { t.task = newTask; t.priority = editingPrio; break; }
-    }
-    closeEdit();
-    renderTasks();
-    toast('✏️ Tarea actualizada');
-  } catch(e) {
-    toast('Error al guardar');
+    if(!r.ok)throw new Error('save failed');
+    for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==editingId);if(t){t.task=newTask;t.priority=editingPrio;break;}}
+    closeEdit();renderTasks();toast('✏️ Tarea actualizada');
+  }catch(e){
+    if(e.message!=='401')toast('Error al guardar');
   }
 }
 
 function updateBadges(){
-  document.getElementById('bc-p').textContent=data.pendiente.length;
-  document.getElementById('bc-s').textContent=data.sin_responder.length;
-  document.getElementById('bc-m').textContent=data.mio.length;
+  const defs=[['bc-p',data.pendiente.length],['bc-s',data.sin_responder.length],['bc-m',data.mio.length]];
+  for(const [id,n] of defs){
+    const el=document.getElementById(id);
+    el.textContent=n;
+    el.style.display=n>0?'':'none';
+  }
 }
 
 function ini(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
-function hrs(h){if(h<1)return'ahora';if(h<24)return h+'h';return Math.floor(h/24)+'d';}
+function hrs(h){
+  if(h<1){const m=Math.round(h*60);return m<2?'ahora':m+'min';}
+  if(h<24)return Math.round(h)+'h';
+  return Math.floor(h/24)+'d';
+}
 
-// Prioridad → clase y dot
-function prioClass(t, bnd){
-  if(bnd==='sin_responder') return {card:'pr-sin',pill:'pill-sin',dot:'dot-sin',label:'👁️ Sin responder'};
-  if(bnd==='mio') return {card:'pr-mio',pill:'pill-mio',dot:'dot-mio',label:'✍️ Mi compromiso'};
+function prioClass(t,bnd){
+  if(bnd==='sin_responder')return{card:'pr-sin',pill:'pill-sin',dot:'dot-sin',label:'👁️ Sin responder'};
+  if(bnd==='mio')return{card:'pr-mio',pill:'pill-mio',dot:'dot-mio',label:'✍️ Mi compromiso'};
   const p=t.priority||'semana';
-  if(p==='ahora') return {card:'pr1',pill:'pill-p1',dot:'dot-p1',label:'🔴 Urgente'};
-  if(p==='hoy')   return {card:'pr2',pill:'pill-p2',dot:'dot-p2',label:'🟡 Media'};
-  return                  {card:'pr3',pill:'pill-p3',dot:'dot-p3',label:'🔵 Baja'};
+  if(p==='ahora')return{card:'pr1',pill:'pill-p1',dot:'dot-p1',label:'🔴 Urgente'};
+  if(p==='hoy')return{card:'pr2',pill:'pill-p2',dot:'dot-p2',label:'🟡 Media'};
+  return{card:'pr3',pill:'pill-p3',dot:'dot-p3',label:'🔵 Baja'};
 }
 
 function getFiltered(){
   let tasks=data[bandeja]||[];
-  if(catFilter==='trabajo') tasks=tasks.filter(t=>t.category==='trabajo');
-  else if(catFilter==='personal') tasks=tasks.filter(t=>t.category==='personal');
+  if(catFilter==='trabajo')tasks=tasks.filter(t=>t.category==='trabajo');
+  else if(catFilter==='personal')tasks=tasks.filter(t=>t.category==='personal');
   return tasks;
 }
-
 function groupByContact(tasks){
   const map={},order=[];
   tasks.forEach(t=>{if(!map[t.contact]){map[t.contact]=[];order.push(t.contact);}map[t.contact].push(t);});
   return order.map(c=>({contact:c,tasks:map[c]}));
 }
 
+// ── HANDLER REGISTRY: evita XSS en chips con onclick+strings ─────────────────
+const _h={};
+let _hIdx=0;
+function reg(fn){const i=_hIdx++;_h[i]=fn;return i;}
+function clearHandlers(){Object.keys(_h).forEach(k=>delete _h[k]);_hIdx=0;}
+
 function renderTasks(){
+  clearHandlers();
   const el=document.getElementById('content');
   const filtered=getFiltered();
   if(!filtered.length){
@@ -376,11 +440,8 @@ function renderTasks(){
     el.innerHTML='<div class="empty"><div class="empty-icon">'+icons[bandeja]+'</div><div class="empty-title">'+msgs[bandeja]+'</div><div class="empty-sub">Los mensajes nuevos aparecen automáticamente</div></div>';
     return;
   }
-
-  // Separar por categoría
   const trabajo=filtered.filter(t=>t.category==='trabajo');
   const personal=filtered.filter(t=>t.category!=='trabajo');
-
   let html='';
   if(trabajo.length){
     html+='<div class="section-hdr">💼 Trabajo · '+trabajo.length+'</div>';
@@ -411,111 +472,106 @@ function renderGroup(g,gi){
   return html+'</div>';
 }
 
-
-// ─── ACCIONES CONTEXTUALES ────────────────────────────────────────────────────
-function copyToClipboard(text, label) {
-  navigator.clipboard.writeText(text).then(() => {
-    toast('📋 ' + (label || 'Copiado'));
-  }).catch(() => {
-    // Fallback para iOS antiguo
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); toast('📋 ' + (label || 'Copiado')); }
-    catch(e) { toast('Error al copiar'); }
+// ── ACCIONES CONTEXTUALES ─────────────────────────────────────────────────────
+function copyToClipboard(text,label){
+  navigator.clipboard.writeText(text).then(()=>{
+    toast('📋 '+(label||'Copiado'));
+  }).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');toast('📋 '+(label||'Copiado'));}
+    catch(e){toast('Error al copiar');}
     document.body.removeChild(ta);
   });
 }
 
-function openCalendarGoogle(action, contact) {
-  // Construir link de Google Calendar
-  const title = encodeURIComponent(action.title || ('Evento con ' + contact));
-  let dt = '';
-  if (action.date && action.time) {
-    // YYYY-MM-DD + HH:MM → YYYYMMDDTHHMMSS
-    const d = action.date.replace(/-/g,'');
-    const t = (action.time + ':00').replace(/:/g,'').slice(0,6);
-    // Asumir 1 hora de duración
-    const startDT = d + 'T' + t;
-    const endHour = String((parseInt(t.slice(0,2)) + 1) % 24).padStart(2,'0');
-    const endDT = d + 'T' + endHour + t.slice(2);
-    dt = '&dates=' + startDT + '/' + endDT;
-  } else if (action.date) {
-    const d = action.date.replace(/-/g,'');
-    dt = '&dates=' + d + '/' + d;
+function openCalendarGoogle(action,contact){
+  const title=encodeURIComponent(action.title||('Evento con '+contact));
+  let dt='';
+  if(action.date&&action.time){
+    const d=action.date.replace(/-/g,'');
+    const t=(action.time+':00').replace(/:/g,'').slice(0,6);
+    const startDT=d+'T'+t;
+    const endHour=String((parseInt(t.slice(0,2))+1)%24).padStart(2,'0');
+    const endDT=d+'T'+endHour+t.slice(2);
+    dt='&dates='+startDT+'/'+endDT;
+  }else if(action.date){
+    const d=action.date.replace(/-/g,'');
+    dt='&dates='+d+'/'+d;
   }
-  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + title + dt;
-  window.open(url, '_blank');
+  window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+dt,'_blank');
 }
 
-function renderActionChips(t) {
-  const actions = t.actions || [];
-  // Siempre incluir WhatsApp del contacto si tenemos el número
-  let allActions = [...actions];
-  if (t.phone && !allActions.some(a => a.type === 'whatsapp_contact' || a.type === 'whatsapp')) {
-    allActions.push({ type: 'whatsapp_contact', value: t.phone, label: 'Responder en WhatsApp' });
+function renderActionChips(t){
+  const actions=t.actions||[];
+  let allActions=[...actions];
+  if(t.phone&&!allActions.some(a=>a.type==='whatsapp_contact'||a.type==='whatsapp')){
+    allActions.push({type:'whatsapp_contact',value:t.phone,label:'Responder en WhatsApp'});
   }
-  if (!allActions.length) return '';
-
-  let html = '<div class="action-chips">';
-  for (const a of allActions) {
-    const safeVal = (a.value || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
-    const safeLabel = (a.label || '').replace(/[<>"]/g, '');
-    
-    if (a.type === 'phone') {
-      html += '<a class="achip achip-tel" href="tel:'+a.value+'"><span class="achip-icon">📞</span>Llamar</a>';
-    } else if (a.type === 'whatsapp' || a.type === 'whatsapp_contact') {
-      const num = a.value.replace(/\D/g, '');
-      html += '<a class="achip achip-wa" href="https://wa.me/'+num+'" target="_blank"><span class="achip-icon">💬</span>WhatsApp</a>';
-    } else if (a.type === 'email') {
-      html += '<a class="achip achip-mail" href="mailto:'+a.value+'"><span class="achip-icon">✉️</span>Mail</a>';
-    } else if (a.type === 'cbu') {
-      html += '<button class="achip achip-cbu" onclick="event.stopPropagation();copyToClipboard(\''+safeVal+'\', \'CBU copiado\')"><span class="achip-icon">💸</span>Copiar CBU</button>';
-    } else if (a.type === 'alias') {
-      html += '<button class="achip achip-alias" onclick="event.stopPropagation();copyToClipboard(\''+safeVal+'\', \'Alias copiado\')"><span class="achip-icon">💸</span>Copiar Alias</button>';
-    } else if (a.type === 'address') {
-      const enc = encodeURIComponent(a.value);
-      html += '<a class="achip achip-addr" href="https://maps.google.com/?q='+enc+'" target="_blank"><span class="achip-icon">📍</span>Maps</a>';
-    } else if (a.type === 'calendar') {
-      const json = JSON.stringify(a).replace(/"/g,'&quot;');
-      html += '<button class="achip achip-cal" onclick="event.stopPropagation();openCalendarGoogle('+JSON.stringify(a).replace(/"/g,'&quot;')+', \''+(t.contact||'').replace(/'/g,"\\'") + '\')"><span class="achip-icon">📅</span>Agendar</button>';
+  if(!allActions.length)return'';
+  let html='<div class="action-chips">';
+  for(const a of allActions){
+    if(a.type==='phone'){
+      // tel: solo acepta dígitos y +, ya sanitizado en extractActions
+      const safe=escHtml(a.value);
+      html+='<a class="achip achip-tel" href="tel:'+safe+'"><span class="achip-icon">📞</span>Llamar</a>';
+    }else if(a.type==='whatsapp'||a.type==='whatsapp_contact'){
+      const num=(a.value||'').replace(/\D/g,'');
+      if(num)html+='<a class="achip achip-wa" href="https://wa.me/'+num+'" target="_blank" rel="noopener"><span class="achip-icon">💬</span>WhatsApp</a>';
+    }else if(a.type==='email'){
+      const safe=escHtml(a.value);
+      html+='<a class="achip achip-mail" href="mailto:'+safe+'"><span class="achip-icon">✉️</span>Mail</a>';
+    }else if(a.type==='cbu'){
+      // Usar registry para evitar inyección por concatenación de strings
+      const i=reg(()=>copyToClipboard(a.value,'CBU copiado'));
+      html+='<button type="button" class="achip achip-cbu" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">💸</span>Copiar CBU</button>';
+    }else if(a.type==='alias'){
+      const i=reg(()=>copyToClipboard(a.value,'Alias copiado'));
+      html+='<button type="button" class="achip achip-alias" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">💸</span>Copiar Alias</button>';
+    }else if(a.type==='address'){
+      const enc=encodeURIComponent(a.value||'');
+      if(enc)html+='<a class="achip achip-addr" href="https://maps.google.com/?q='+enc+'" target="_blank" rel="noopener"><span class="achip-icon">📍</span>Maps</a>';
+    }else if(a.type==='calendar'){
+      const i=reg(()=>openCalendarGoogle(a,t.contact||''));
+      html+='<button type="button" class="achip achip-cal" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">📅</span>Agendar</button>';
     }
   }
-  html += '</div>';
-  return html;
+  return html+'</div>';
 }
 
-
-function renderCard(t,delay){
+function renderCard(t){
   const isOpen=expanded===t.id;
   const isSin=bandeja==='sin_responder';
   const isMio=bandeja==='mio';
   const pc=prioClass(t,bandeja);
   let meetBadge='';
   if(t.meeting&&(t.meeting.time||t.meeting.date)){
-    meetBadge='<span class="meet-badge">📍 '+[t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' ')+'</span>';
+    meetBadge='<span class="meet-badge">📍 '+esc([t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' '))+'</span>';
   }
   let actions='';
   if(isSin){
-    actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Ya respondí</button>'+
-            '<button class="btn-keep" onclick="keepTask('+t.id+')">📥 Es pendiente</button>'+
-            '<button class="btn-edit" onclick="editTask('+t.id+')">✏️</button>'+
-            '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
-  } else if(isMio){
-    actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Cumplido</button>'+
-            '<button class="btn-edit" onclick="editTask('+t.id+')">✏️</button>'+
-            '<button class="btn-zz" onclick="snooze('+t.id+')">😴</button>'+
-            '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
-  } else {
-    actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Listo</button>'+
-            '<button class="btn-edit" onclick="editTask('+t.id+')">✏️</button>'+
-            '<button class="btn-zz" onclick="snooze('+t.id+')">😴</button>'+
-            '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
+    actions=
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Ya respondí">✅ Ya respondí</button>'+
+      '<button type="button" class="btn-keep" onclick="keepTask('+t.id+')" aria-label="Mover a pendientes">📥 Es pendiente</button>'+
+      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">✏️</button>'+
+      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">🗑</button>';
+  }else if(isMio){
+    actions=
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como cumplido">✅ Cumplido</button>'+
+      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">✏️</button>'+
+      '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">😴</button>'+
+      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">🗑</button>';
+  }else{
+    actions=
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como listo">✅ Listo</button>'+
+      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">✏️</button>'+
+      '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">😴</button>'+
+      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">🗑</button>';
   }
-  return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')">'+
+  return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
     '<div class="tc-top">'+
-    '<div class="prio-dot '+pc.dot+'"></div>'+
+    '<div class="prio-dot '+pc.dot+'" aria-hidden="true"></div>'+
     '<div class="tc-body">'+
     '<div class="tc-row"><span class="tc-prev">'+esc(t.preview)+'</span><span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
     '<div><span class="tc-pill '+pc.pill+'">'+pc.label+'</span>'+meetBadge+'</div>'+
@@ -529,57 +585,71 @@ function renderCard(t,delay){
 }
 
 function toggle(id){expanded=expanded===id?null:id;renderTasks();setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
-function resolve(id){const c=document.getElementById('card-'+id);if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}}
 
-// ─── SSE: actualizaciones en tiempo real ────────────────────────────────────
-let evtSource = null;
-let sseFailures = 0;
-let pollFallback = null;
+function resolve(id){
+  const c=document.getElementById('card-'+id);
+  if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}
+}
+function deleteTask(id){
+  if(!confirm('¿Eliminar esta tarea?'))return;
+  const c=document.getElementById('card-'+id);
+  if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('🗑️ Eliminada');},280);}
+}
 
-function startSSE() {
-  if (evtSource) try { evtSource.close(); } catch(e) {}
-  try {
-    evtSource = new EventSource(API + '/stream?token=' + encodeURIComponent(TOKEN));
+// ── MODAL: ESC cierra, Enter guarda ──────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('editModal').classList.contains('show'))closeEdit();
+});
+document.getElementById('editText').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();saveEdit();}
+});
 
-    evtSource.addEventListener('connected', () => {
-      sseFailures = 0;
+// ── SSE ───────────────────────────────────────────────────────────────────────
+let evtSource=null,sseFailures=0,pollFallback=null;
+
+function startSSE(){
+  if(!TOKEN)return;
+  if(evtSource)try{evtSource.close();}catch(e){}
+  try{
+    evtSource=new EventSource(API+'/stream?token='+encodeURIComponent(TOKEN));
+    evtSource.addEventListener('connected',()=>{
+      sseFailures=0;
       setConn(true);
-      // Si había polling de fallback corriendo, detenerlo
-      if (pollFallback) { clearInterval(pollFallback); pollFallback = null; }
-      console.log('[SSE] Conectado en vivo');
+      if(pollFallback){clearInterval(pollFallback);pollFallback=null;}
     });
-
-    evtSource.addEventListener('task_changed', (e) => {
-      // Refrescar tareas cuando hay cualquier cambio
-      loadAll();
-    });
-
-    evtSource.onerror = () => {
+    evtSource.addEventListener('task_changed',()=>{loadAll();});
+    evtSource.onerror=()=>{
       sseFailures++;
-      console.warn('[SSE] Error, falla #' + sseFailures);
-      // Después de 3 fallas, caer a polling cada 30s
-      if (sseFailures >= 3 && !pollFallback) {
-        console.warn('[SSE] Fallback a polling 30s');
-        pollFallback = setInterval(loadAll, 30000);
+      if(sseFailures>=3&&!pollFallback){
+        evtSource.close();
+        pollFallback=setInterval(loadAll,30000);
+        // Reintentar SSE luego de 5 minutos
+        setTimeout(()=>{
+          if(pollFallback){clearInterval(pollFallback);pollFallback=null;}
+          sseFailures=0;
+          startSSE();
+        },300000);
       }
     };
-  } catch(e) {
-    console.error('[SSE] No disponible:', e);
-    if (!pollFallback) pollFallback = setInterval(loadAll, 30000);
+  }catch(e){
+    if(!pollFallback)pollFallback=setInterval(loadAll,30000);
   }
 }
 
-// Reanudar SSE cuando la app vuelve al foreground
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    if (!evtSource || evtSource.readyState === 2) startSSE();
-    loadAll(); // refresh inmediato al abrir
+// Throttle: recargar al volver al foreground máximo 1 vez por minuto
+let lastVisibleLoad=0;
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden){
+    const now=Date.now();
+    if(now-lastVisibleLoad>60000){
+      lastVisibleLoad=now;
+      if(!evtSource||evtSource.readyState===2)startSSE();
+      loadAll();
+    }
   }
 });
 
-
-startSSE();
-loadAll();
+if(TOKEN){startSSE();loadAll();}
 </script>
 </body>
 </html>
