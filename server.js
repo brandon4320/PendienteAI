@@ -63,6 +63,8 @@ const cols = db.pragma('table_info(tasks)').map(c => c.name);
 if (!cols.includes('type')) db.exec("ALTER TABLE tasks ADD COLUMN type TEXT DEFAULT 'pendiente'");
 if (!cols.includes('from_me')) db.exec("ALTER TABLE tasks ADD COLUMN from_me INTEGER DEFAULT 0");
 if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
+// Fix task null: actualizar registros con task null o vacío
+db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();
 
 function cleanOldData() {
   db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
@@ -175,6 +177,7 @@ function saveTask(contact, msgs, analysis) {
   const type = analysis.type || 'pendiente';
   const lastMsg = msgs[msgs.length-1]?.text || '';
   const keyMsg = (analysis.keyMessage || lastMsg).slice(0, 150);
+  const safeTask = (analysis.task || 'Revisar mensaje').slice(0, 100);
 
   // ── DEDUPLICACIÓN: si ya existe tarea del mismo contacto Y tarea similar, actualizar en vez de crear nueva ──
   // Para "pendiente": buscar si hay tarea reciente (últimas 2 horas) del mismo contacto
@@ -184,10 +187,10 @@ function saveTask(contact, msgs, analysis) {
     if (existing) {
       db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
         meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
+        .run(lastMsg.slice(0,80),keyMsg,safeTask,analysis.priority||'hoy',
           analysis.urgent?1:0,analysis.category||'personal',
           meeting?.date||null,meeting?.time||null,meeting?.location||null,existing.id);
-      console.log('[MIO-UPDATE] '+contact+': '+analysis.task);
+      console.log('[MIO-UPDATE] '+contact+': '+safeTask);
       return;
     }
   } else {
@@ -199,10 +202,10 @@ function saveTask(contact, msgs, analysis) {
     if (recent) {
       db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
         meeting_date=?,meeting_time=?,meeting_location=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
+        .run(lastMsg.slice(0,80),keyMsg,safeTask,analysis.priority||'hoy',
           analysis.urgent?1:0,analysis.category||'personal',
           meeting?.date||null,meeting?.time||null,meeting?.location||null,recent.id);
-      console.log('[PENDIENTE-UPDATE] '+contact+': '+analysis.task);
+      console.log('[PENDIENTE-UPDATE] '+contact+': '+safeTask);
       return;
     }
   }
@@ -211,10 +214,10 @@ function saveTask(contact, msgs, analysis) {
   db.prepare(`INSERT INTO tasks
     (contact,preview,key_message,task,priority,urgent,category,type,from_me,meeting_date,meeting_time,meeting_location)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(contact,lastMsg.slice(0,80),keyMsg,analysis.task,analysis.priority||'hoy',
+    .run(contact,lastMsg.slice(0,80),keyMsg,safeTask,analysis.priority||'hoy',
       analysis.urgent?1:0,analysis.category||'personal',type,type==='mio'?1:0,
       meeting?.date||null,meeting?.time||null,meeting?.location||null);
-  console.log('['+type.toUpperCase()+'-NEW]['+( analysis.priority||'hoy')+'] '+contact+': '+analysis.task);
+  console.log('['+type.toUpperCase()+'-NEW]['+( analysis.priority||'hoy')+'] '+contact+': '+safeTask);
 }
 
 // Sin responder: guardar con timestamp para calcular la demora después
@@ -248,6 +251,13 @@ function scheduleSinResponder(contact, msgs, analysis) {
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
+  // Validar que el request viene de WAHA con su API key
+  const wahaKey = req.headers['x-api-key'] || req.query.apiKey || req.body?.me?.id;
+  const expectedKey = process.env.WAHA_API_KEY || 'pendiente2024';
+  if (req.headers['x-api-key'] && req.headers['x-api-key'] !== expectedKey) {
+    console.log('[WEBHOOK] Request rechazado - API key inválida');
+    return res.sendStatus(403);
+  }
   res.sendStatus(200);
   try {
     const { event, payload } = req.body;
