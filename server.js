@@ -259,6 +259,27 @@ Respondé SOLO JSON:
 
 function saveTask(contact, msgs, analysis) {
   if (!analysis.needsAction || analysis.priority === 'ignorar') return;
+
+  // Validación: confidence mínima de 0.7 para evitar alucinaciones
+  if (analysis.confidence !== undefined && analysis.confidence < 0.7) {
+    console.log('[SKIP-LOW-CONF] '+contact+' (conf:'+analysis.confidence+'): '+(analysis.task||'?'));
+    return;
+  }
+
+  // Validación de coherencia: la task debe usar palabras de los mensajes
+  const allText = (msgs || []).map(m => (m.text || '').toLowerCase()).join(' ');
+  const taskWords = (analysis.task || '').toLowerCase().split(/\s+/).filter(w => w.length >= 4);
+  // Palabras genéricas que no cuentan como "matchear"
+  const generic = new Set(['responder','revisar','enviar','mandar','contactar','confirmar','llamar','consultar','preguntar','contestar','escribir','seguir','hacer','tarea','mensaje','sobre','para','cosa','algo','tema','reunir','reunion','asistir','recibir']);
+  const meaningfulWords = taskWords.filter(w => !generic.has(w));
+
+  if (meaningfulWords.length > 0) {
+    const matched = meaningfulWords.some(w => allText.includes(w));
+    if (!matched) {
+      console.log('[SKIP-HALLUCINATION] '+contact+': "'+analysis.task+'" no matchea con mensajes reales');
+      return;
+    }
+  }
   const meeting = (analysis.meeting?.date || analysis.meeting?.time) ? analysis.meeting : null;
   const type = analysis.type || 'pendiente';
   const lastMsg = msgs[msgs.length-1]?.text || '';
