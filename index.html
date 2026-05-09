@@ -118,7 +118,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .btn-ok{flex:1;padding:10px;background:var(--green);border:none;color:white;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-keep{flex:1;padding:10px;background:var(--amber-bg);border:1px solid var(--amber-b);color:var(--amber);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-zz{padding:10px 12px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:9px;font-size:12px;cursor:pointer}
+.btn-edit{padding:10px 12px;background:var(--card);border:1px solid var(--blue-b);color:var(--blue);border-radius:9px;font-size:12px;cursor:pointer}
 .btn-x{padding:10px 12px;background:var(--card);border:1px solid var(--red-b);color:var(--red);border-radius:9px;font-size:12px;cursor:pointer}
+
+/* MODAL EDITAR */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:14px;padding:20px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.modal-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:block}
+.modal-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:var(--font);color:var(--text);background:var(--bg);margin-bottom:14px;outline:none}
+.modal-input:focus{border-color:var(--green)}
+.modal-prio{display:flex;gap:6px;margin-bottom:16px}
+.mp{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--muted)}
+.mp.active.p1{background:var(--p1-bg);border-color:var(--p1-b);color:var(--p1)}
+.mp.active.p2{background:var(--p2-bg);border-color:var(--p2-b);color:var(--p2)}
+.mp.active.p3{background:var(--p3-bg);border-color:var(--p3-b);color:var(--p3)}
+.modal-actions{display:flex;gap:8px}
+.btn-cancel{flex:1;padding:10px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:9px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-save{flex:1;padding:10px;background:var(--green);border:none;color:white;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer}
 .tcard.dismissing{animation:out 0.28s ease forwards}
 @keyframes out{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
 
@@ -169,6 +187,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="loading"><div class="spinner"></div><div class="lt">Cargando...</div></div>
   </div>
 </div>
+
+<!-- MODAL EDITAR -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar tarea</div>
+    <label class="modal-label">Descripción</label>
+    <input type="text" class="modal-input" id="editText" maxlength="200" />
+    <label class="modal-label">Prioridad</label>
+    <div class="modal-prio">
+      <button class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)">🔴 Urgente</button>
+      <button class="mp p2" data-p="hoy" onclick="setEditPrio('hoy',this)">🟡 Media</button>
+      <button class="mp p3" data-p="semana" onclick="setEditPrio('semana',this)">🔵 Baja</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEdit()">Cancelar</button>
+      <button class="btn-save" onclick="saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><span id="toastTxt"></span></div>
 
 <script>
@@ -230,6 +268,59 @@ async function keepTask(id){
   if(t){t.type='pendiente';data.pendiente.push(t);data.sin_responder=data.sin_responder.filter(x=>x.id!=id);}
   updateBadges();renderTasks();toast('📥 Movido a Pendientes');
 }
+let editingId = null;
+let editingPrio = 'hoy';
+function editTask(id){
+  event.stopPropagation();
+  let task = null;
+  for (const k of Object.keys(data)) {
+    const t = data[k].find(x => x.id == id);
+    if (t) { task = t; break; }
+  }
+  if (!task) return;
+  editingId = id;
+  editingPrio = task.priority || 'hoy';
+  document.getElementById('editText').value = task.task || '';
+  // Marcar prioridad activa
+  document.querySelectorAll('.mp').forEach(b => {
+    b.classList.toggle('active', b.dataset.p === editingPrio);
+  });
+  document.getElementById('editModal').classList.add('show');
+  setTimeout(() => document.getElementById('editText').focus(), 100);
+}
+function setEditPrio(p, btn){
+  editingPrio = p;
+  document.querySelectorAll('.mp').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function closeEdit(){
+  document.getElementById('editModal').classList.remove('show');
+  editingId = null;
+}
+async function saveEdit(){
+  if (!editingId) return;
+  const newTask = document.getElementById('editText').value.trim();
+  if (newTask.length < 2) { toast('Texto muy corto'); return; }
+  try {
+    const r = await apiFetch(API+'/tasks/'+editingId+'/edit', {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ task: newTask, priority: editingPrio })
+    });
+    if (!r.ok) throw new Error('save failed');
+    // Actualizar en local
+    for (const k of Object.keys(data)) {
+      const t = data[k].find(x => x.id == editingId);
+      if (t) { t.task = newTask; t.priority = editingPrio; break; }
+    }
+    closeEdit();
+    renderTasks();
+    toast('✏️ Tarea actualizada');
+  } catch(e) {
+    toast('Error al guardar');
+  }
+}
+
 function updateBadges(){
   document.getElementById('bc-p').textContent=data.pendiente.length;
   document.getElementById('bc-s').textContent=data.sin_responder.length;
@@ -317,11 +408,18 @@ function renderCard(t,delay){
   }
   let actions='';
   if(isSin){
-    actions='<button class="btn-keep" onclick="keepTask('+t.id+')">📥 Es pendiente</button>'+
-            '<button class="btn-ok" onclick="resolve('+t.id+')">✅ Ya respondí</button>'+
+    actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Ya respondí</button>'+
+            '<button class="btn-keep" onclick="keepTask('+t.id+')">📥 Es pendiente</button>'+
+            '<button class="btn-edit" onclick="editTask('+t.id+')">✏️</button>'+
+            '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
+  } else if(isMio){
+    actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Cumplido</button>'+
+            '<button class="btn-edit" onclick="editTask('+t.id+')">✏️</button>'+
+            '<button class="btn-zz" onclick="snooze('+t.id+')">😴</button>'+
             '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
   } else {
     actions='<button class="btn-ok" onclick="resolve('+t.id+')">✅ Listo</button>'+
+            '<button class="btn-edit" onclick="editTask('+t.id+')">✏️</button>'+
             '<button class="btn-zz" onclick="snooze('+t.id+')">😴</button>'+
             '<button class="btn-x" onclick="resolve('+t.id+')">🗑</button>';
   }
