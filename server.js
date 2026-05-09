@@ -83,7 +83,7 @@ db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task='
 
 function cleanOldData() {
   db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
-  db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-7 days')").run();
+  db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-1 day')").run();
 }
 cleanOldData();
 
