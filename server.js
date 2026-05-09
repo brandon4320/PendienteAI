@@ -87,6 +87,63 @@ setTimeout(()=>{cleanOldData();setInterval(cleanOldData,86400000);},n3-new Date(
 
 // ─── COLA DE PROCESAMIENTO ────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// ─── TRANSCRIPCIÓN DE AUDIO (Whisper en Groq) ─────────────────────────────────
+async function transcribeAudio(mediaUrl, mimetype) {
+  try {
+    const WAHA_URL = process.env.WAHA_URL || 'http://localhost:3000';
+    const WAHA_API_KEY = process.env.WAHA_API_KEY || 'pendiente2024';
+
+    // 1. Descargar el audio desde WAHA
+    const audioRes = await fetch(mediaUrl, {
+      headers: { 'X-Api-Key': WAHA_API_KEY }
+    });
+    if (!audioRes.ok) {
+      console.error('[AUDIO] Error descargando:', audioRes.status);
+      return null;
+    }
+    const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+
+    // 2. Verificar tamaño máximo (25 MB)
+    if (audioBuffer.length > 25 * 1024 * 1024) {
+      console.error('[AUDIO] Demasiado grande:', audioBuffer.length);
+      return null;
+    }
+
+    // 3. Crear FormData con el archivo
+    const FormData = require('form-data');
+    const form = new FormData();
+    const ext = mimetype?.includes('mp3') ? 'mp3' : 'ogg';
+    form.append('file', audioBuffer, { filename: 'audio.' + ext, contentType: mimetype || 'audio/ogg' });
+    form.append('model', 'whisper-large-v3-turbo');
+    form.append('language', 'es');
+    form.append('response_format', 'json');
+
+    // 4. Llamar a Groq Whisper API con timeout 30s
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 30000);
+    const transRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + process.env.GROQ_API_KEY, ...form.getHeaders() },
+      body: form,
+      signal: ctrl.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!transRes.ok) {
+      console.error('[AUDIO] Whisper error:', transRes.status, await transRes.text());
+      return null;
+    }
+
+    const data = await transRes.json();
+    const text = data.text?.trim() || '';
+    console.log('[AUDIO] Transcrito (' + text.length + ' chars): ' + text.slice(0, 80));
+    return text;
+  } catch(e) {
+    console.error('[AUDIO] Error:', e.message);
+    return null;
+  }
+}
 let queue = [];
 let processing = false;
 
@@ -273,12 +330,29 @@ app.post('/webhook', async (req, res) => {
     const { event, payload } = req.body;
     if (event !== 'message') return;
 
-    const text = payload.body || '';
+    let text = payload.body || '';
     const contact = payload._data?.notifyName || payload.from || '';
     const fromMe = payload.fromMe || false;
+    const hasMedia = payload.hasMedia || false;
+    const mediaType = payload._data?.type || payload.type || '';
+    const mediaUrl = payload.media?.url || payload._data?.mediaUrl || null;
+    const mimetype = payload.media?.mimetype || payload._data?.mimetype || '';
 
     if (contact === 'status@broadcast') return;
     if (!payload._data?.notifyName && contact.includes('@g.us')) return;
+
+    // Si es audio/voz, transcribirlo con Whisper
+    const isAudio = mediaType === 'ptt' || mediaType === 'audio' || mimetype.startsWith('audio/');
+    if (isAudio && mediaUrl) {
+      console.log('[AUDIO] Detectado de ' + contact + ', transcribiendo...');
+      const transcribed = await transcribeAudio(mediaUrl, mimetype);
+      if (transcribed && transcribed.length >= 3) {
+        text = '[🎤 audio] ' + transcribed;
+      } else {
+        return; // Falló la transcripción
+      }
+    }
+
     if (!text || text.length < 3) return;
 
     // Guardar en historial persistente
