@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#111827">
 <title>PendienteAI</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -57,11 +61,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* TOOLBAR */
 .toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
-.cat-pills{display:flex;gap:6px;flex:1}
+.cat-pills{display:flex;gap:6px;flex-shrink:0}
 .cpill{padding:5px 14px;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:20px;background:transparent;transition:all 0.15s}
 .cpill.active{background:var(--text);border-color:var(--text);color:white}
 .cpill.w.active{background:var(--blue);border-color:var(--blue);color:white}
 .cpill.p.active{background:var(--green);border-color:var(--green);color:white}
+.search-wrap{flex:1;min-width:0}
+.search-input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:9px;font-size:12px;font-family:var(--font);color:var(--text);background:var(--bg);outline:none}
+.search-input:focus{border-color:var(--green)}
 .btn-refresh{flex-shrink:0;padding:7px 12px;background:var(--green);border:none;border-radius:9px;color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -164,13 +171,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
 .lt{font-family:var(--mono);font-size:10px;color:var(--muted2)}
 .err{margin:10px 0;padding:12px;background:var(--red-bg);border:1px solid var(--red-b);border-radius:11px;font-size:12px;color:var(--red);text-align:center;line-height:1.5}
-.toast{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:11px;padding:9px 16px;font-size:12px;font-weight:600;color:white;white-space:nowrap;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
-.toast.show{transform:translateX(-50%) translateY(0)}
+.toast{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:11px;padding:9px 16px;font-size:12px;font-weight:600;color:white;white-space:nowrap;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;display:flex;align-items:center;gap:0}
+.toast.show{transform:translateX(-50%) translateY(0);pointer-events:all}
+.toast-undo{margin-left:10px;background:transparent;border:1px solid rgba(255,255,255,0.5);border-radius:7px;color:white;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
 
-<!-- LOGIN: visible si no hay token en sessionStorage -->
+<!-- LOGIN -->
 <div class="login-overlay" id="loginScreen" role="dialog" aria-modal="true" aria-label="Iniciar sesión">
   <div class="login-box">
     <div class="login-title">Pendiente<span style="color:var(--green)">AI</span></div>
@@ -188,13 +196,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
     </div>
     <div class="btabs">
-      <button type="button" class="bt active" onclick="setBandeja('pendiente',this)">
+      <button type="button" class="bt active" data-bandeja="pendiente" onclick="setBandeja('pendiente',this)">
         📥 Pendientes <span class="bcount red" id="bc-p" style="display:none">0</span>
       </button>
-      <button type="button" class="bt sin" onclick="setBandeja('sin_responder',this)">
+      <button type="button" class="bt sin" data-bandeja="sin_responder" onclick="setBandeja('sin_responder',this)">
         👁️ Sin resp. <span class="bcount purple" id="bc-s" style="display:none">0</span>
       </button>
-      <button type="button" class="bt mio" onclick="setBandeja('mio',this)">
+      <button type="button" class="bt mio" data-bandeja="mio" onclick="setBandeja('mio',this)">
         ✅ Mis comp. <span class="bcount orange" id="bc-m" style="display:none">0</span>
       </button>
     </div>
@@ -205,6 +213,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button type="button" class="cpill active" onclick="setCat('all',this)">Todos</button>
       <button type="button" class="cpill w" onclick="setCat('trabajo',this)">💼 Trabajo</button>
       <button type="button" class="cpill p" onclick="setCat('personal',this)">👥 Personal</button>
+    </div>
+    <div class="search-wrap">
+      <input type="search" class="search-input" id="searchInput" placeholder="Buscar..." oninput="renderTasks()" aria-label="Buscar tareas">
     </div>
     <button type="button" class="btn-refresh" id="scanBtn" onclick="loadAll()" aria-label="Actualizar tareas">
       <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
@@ -235,7 +246,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 </div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastTxt"></span></div>
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toastTxt"></span>
+  <button type="button" class="toast-undo" id="toastUndo" style="display:none">Deshacer</button>
+</div>
 
 <script>
 const API='https://pendiente.transtidefreight.com';
@@ -258,8 +272,7 @@ function doLogin(){
   sessionStorage.setItem('pai_token',TOKEN);
   errEl.textContent='';
   loginScreen.style.display='none';
-  startSSE();
-  loadAll();
+  initApp();
 }
 function showLogin(msg){
   TOKEN='';
@@ -284,9 +297,25 @@ let expanded=null,catFilter='all',bandeja='pendiente';
 let tt;
 function toast(t){
   const el=document.getElementById('toast');
+  const ub=document.getElementById('toastUndo');
   document.getElementById('toastTxt').textContent=t;
+  ub.style.display='none';
   el.classList.add('show');clearTimeout(tt);
   tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
+let _toastUndoFn=null;
+function toastUndo(msg,undoFn){
+  const el=document.getElementById('toast');
+  const ub=document.getElementById('toastUndo');
+  document.getElementById('toastTxt').textContent=msg;
+  _toastUndoFn=undoFn;
+  ub.style.display=undoFn?'':'none';
+  ub.onclick=()=>{
+    if(_toastUndoFn){_toastUndoFn();_toastUndoFn=null;}
+    el.classList.remove('show');ub.style.display='none';clearTimeout(tt);
+  };
+  el.classList.add('show');clearTimeout(tt);
+  tt=setTimeout(()=>{el.classList.remove('show');ub.style.display='none';_toastUndoFn=null;},4200);
 }
 function setConn(ok){
   document.getElementById('dot').className='dot'+(ok?'':' off');
@@ -295,6 +324,7 @@ function setConn(ok){
 
 function setBandeja(b,btn){
   bandeja=b;expanded=null;
+  localStorage.setItem('pai_bandeja',b);
   document.querySelectorAll('.bt').forEach(x=>x.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderTasks();
@@ -325,6 +355,22 @@ async function loadAll(){
     if(e.message==='401')return;
     setConn(false);
     document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+escHtml(e.message)+'</small></div>';
+  }finally{
+    icon.classList.remove('spin');
+  }
+}
+
+async function loadBandeja(type){
+  const icon=document.getElementById('refreshIcon');
+  icon.classList.add('spin');
+  try{
+    const r=await apiFetch(API+'/tasks?type='+encodeURIComponent(type));
+    data[type]=await r.json();
+    setConn(true);
+    updateBadges();
+    if(bandeja===type)renderTasks();
+  }catch(e){
+    if(e.message!=='401')setConn(false);
   }finally{
     icon.classList.remove('spin');
   }
@@ -416,6 +462,12 @@ function getFiltered(){
   let tasks=data[bandeja]||[];
   if(catFilter==='trabajo')tasks=tasks.filter(t=>t.category==='trabajo');
   else if(catFilter==='personal')tasks=tasks.filter(t=>t.category==='personal');
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
+  if(q)tasks=tasks.filter(t=>
+    (t.contact||'').toLowerCase().includes(q)||
+    (t.task||'').toLowerCase().includes(q)||
+    (t.preview||'').toLowerCase().includes(q)
+  );
   return tasks;
 }
 function groupByContact(tasks){
@@ -424,7 +476,7 @@ function groupByContact(tasks){
   return order.map(c=>({contact:c,tasks:map[c]}));
 }
 
-// ── HANDLER REGISTRY: evita XSS en chips con onclick+strings ─────────────────
+// ── HANDLER REGISTRY ─────────────────────────────────────────────────────────
 const _h={};
 let _hIdx=0;
 function reg(fn){const i=_hIdx++;_h[i]=fn;return i;}
@@ -435,9 +487,20 @@ function renderTasks(){
   const el=document.getElementById('content');
   const filtered=getFiltered();
   if(!filtered.length){
-    const icons={pendiente:'📥',sin_responder:'👁️',mio:'✅'};
-    const msgs={pendiente:'Bandeja vacía',sin_responder:'Todo respondido 🎉',mio:'Sin compromisos'};
-    el.innerHTML='<div class="empty"><div class="empty-icon">'+icons[bandeja]+'</div><div class="empty-title">'+msgs[bandeja]+'</div><div class="empty-sub">Los mensajes nuevos aparecen automáticamente</div></div>';
+    const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
+    let icon,title,sub;
+    if(q){
+      icon='🔍';title='Sin resultados para "'+escHtml(q)+'"';sub='Intentá con otro término';
+    }else if(catFilter!=='all'){
+      icon='🗂️';
+      title='Sin tareas de '+(catFilter==='trabajo'?'trabajo':'personal');
+      sub='Hay tareas en otras categorías — probá "Todos"';
+    }else{
+      const icons={pendiente:'📥',sin_responder:'👁️',mio:'✅'};
+      const msgs={pendiente:'Bandeja vacía',sin_responder:'Todo respondido 🎉',mio:'Sin compromisos'};
+      icon=icons[bandeja];title=msgs[bandeja];sub='Los mensajes nuevos aparecen automáticamente';
+    }
+    el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">'+title+'</div><div class="empty-sub">'+sub+'</div></div>';
     return;
   }
   const trabajo=filtered.filter(t=>t.category==='trabajo');
@@ -513,7 +576,6 @@ function renderActionChips(t){
   let html='<div class="action-chips">';
   for(const a of allActions){
     if(a.type==='phone'){
-      // tel: solo acepta dígitos y +, ya sanitizado en extractActions
       const safe=escHtml(a.value);
       html+='<a class="achip achip-tel" href="tel:'+safe+'"><span class="achip-icon">📞</span>Llamar</a>';
     }else if(a.type==='whatsapp'||a.type==='whatsapp_contact'){
@@ -523,7 +585,6 @@ function renderActionChips(t){
       const safe=escHtml(a.value);
       html+='<a class="achip achip-mail" href="mailto:'+safe+'"><span class="achip-icon">✉️</span>Mail</a>';
     }else if(a.type==='cbu'){
-      // Usar registry para evitar inyección por concatenación de strings
       const i=reg(()=>copyToClipboard(a.value,'CBU copiado'));
       html+='<button type="button" class="achip achip-cbu" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">💸</span>Copiar CBU</button>';
     }else if(a.type==='alias'){
@@ -584,11 +645,28 @@ function renderCard(t){
     '</div></div>';
 }
 
-function toggle(id){expanded=expanded===id?null:id;renderTasks();setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
+function toggle(id){
+  if(expanded===id){
+    document.querySelector('#card-'+id+' .tc-detail')?.classList.remove('open');
+    expanded=null;
+  }else{
+    if(expanded!==null)document.querySelector('#card-'+expanded+' .tc-detail')?.classList.remove('open');
+    expanded=id;
+    const det=document.querySelector('#card-'+id+' .tc-detail');
+    if(det){det.classList.add('open');setTimeout(()=>det.scrollIntoView({behavior:'smooth',block:'nearest'}),50);}
+  }
+}
 
+const _pendingResolve={};
+function _removeLocal(id){for(const k of Object.keys(data))data[k]=data[k].filter(t=>t.id!=id);}
+async function _apiDelete(id){try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}}
 function resolve(id){
-  const c=document.getElementById('card-'+id);
-  if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('✅ Resuelto');},280);}
+  if(_pendingResolve[id])return;
+  document.getElementById('card-'+id)?.classList.add('dismissing');
+  _removeLocal(id);
+  setTimeout(()=>{updateBadges();renderTasks();},290);
+  toastUndo('✅ Resuelto',()=>{clearTimeout(_pendingResolve[id]);delete _pendingResolve[id];loadAll();});
+  _pendingResolve[id]=setTimeout(()=>{delete _pendingResolve[id];_apiDelete(id);},4200);
 }
 function deleteTask(id){
   if(!confirm('¿Eliminar esta tarea?'))return;
@@ -617,13 +695,15 @@ function startSSE(){
       setConn(true);
       if(pollFallback){clearInterval(pollFallback);pollFallback=null;}
     });
-    evtSource.addEventListener('task_changed',()=>{loadAll();});
+    evtSource.addEventListener('task_changed',e=>{
+      try{const d=JSON.parse(e.data||'{}');if(d.taskType)loadBandeja(d.taskType);else loadAll();}
+      catch{loadAll();}
+    });
     evtSource.onerror=()=>{
       sseFailures++;
       if(sseFailures>=3&&!pollFallback){
         evtSource.close();
         pollFallback=setInterval(loadAll,30000);
-        // Reintentar SSE luego de 5 minutos
         setTimeout(()=>{
           if(pollFallback){clearInterval(pollFallback);pollFallback=null;}
           sseFailures=0;
@@ -636,7 +716,6 @@ function startSSE(){
   }
 }
 
-// Throttle: recargar al volver al foreground máximo 1 vez por minuto
 let lastVisibleLoad=0;
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden){
@@ -649,7 +728,34 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 
-if(TOKEN){startSSE();loadAll();}
+// ── SWIPE & PULL ──────────────────────────────────────────────────────────────
+const _cnt=document.getElementById('content');
+let _tx=0,_ty=0,_tcid=null,_isPull=false;
+_cnt.addEventListener('touchstart',e=>{
+  _tx=e.touches[0].clientX;_ty=e.touches[0].clientY;
+  const tc=e.target.closest('.tcard');
+  _tcid=(tc&&!e.target.closest('.tc-detail')&&!e.target.closest('button')&&!e.target.closest('a'))
+    ?parseInt(tc.id.replace('card-',''),10):null;
+  _isPull=_cnt.scrollTop===0;
+},{passive:true});
+_cnt.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-_tx;
+  const dy=e.changedTouches[0].clientY-_ty;
+  if(_isPull&&dy>80&&Math.abs(dx)<50){loadAll();_isPull=false;return;}
+  if(_tcid&&dx<-80&&Math.abs(dy)<60)resolve(_tcid);
+  _tcid=null;
+},{passive:true});
+
+function initApp(){
+  const saved=localStorage.getItem('pai_bandeja');
+  if(saved&&['pendiente','sin_responder','mio'].includes(saved)){
+    bandeja=saved;
+    document.querySelectorAll('.bt').forEach(b=>b.classList.toggle('active',b.dataset.bandeja===saved));
+  }
+  startSSE();loadAll();
+}
+
+if(TOKEN){initApp();}
 </script>
 </body>
 </html>

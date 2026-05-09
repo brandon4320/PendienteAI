@@ -83,7 +83,7 @@ db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task='
 
 function cleanOldData() {
   db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
-  db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-1 day')").run();
+  db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-7 days')").run();
 }
 cleanOldData();
 
@@ -453,7 +453,17 @@ setInterval(() => {
 
 // ─── BUFFERS ──────────────────────────────────────────────────────────────────
 let burstBuffer = {};
-let phoneCache = {};
+const phoneCache = {};
+const PHONE_CACHE_TTL = 24 * 60 * 60 * 1000;
+function setCachedPhone(contact, phone) {
+  phoneCache[contact] = { phone, ts: Date.now() };
+}
+function getCachedPhone(contact) {
+  const e = phoneCache[contact];
+  if (!e) return null;
+  if (Date.now() - e.ts > PHONE_CACHE_TTL) { delete phoneCache[contact]; return null; }
+  return e.phone;
+}
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
@@ -513,7 +523,7 @@ app.post('/webhook', async (req, res) => {
 
     if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null };
     if (burstBuffer[contact].timer) clearTimeout(burstBuffer[contact].timer);
-    if (contactPhoneNumber) phoneCache[contact] = contactPhoneNumber;
+    if (contactPhoneNumber) setCachedPhone(contact, contactPhoneNumber);
 
     burstBuffer[contact].timer = setTimeout(() => {
       delete burstBuffer[contact];
@@ -524,7 +534,7 @@ app.post('/webhook', async (req, res) => {
           const lastIsFromOther = !history[history.length - 1].fromMe;
           const analysis = await analyzeConversation(contact, history);
           if (analysis.needsAction && analysis.priority !== 'ignorar') {
-            saveTask(contact, history, analysis, phoneCache[contact] || null);
+            saveTask(contact, history, analysis, getCachedPhone(contact));
           }
           if (lastIsFromOther) scheduleSinResponder(contact, history, analysis);
         } catch(e) { console.error('Analysis error [' + contact + ']:', e.message); }
@@ -542,7 +552,7 @@ app.get('/tasks', (req, res) => {
     FROM tasks WHERE status='pending' AND type=?
     ORDER BY CASE priority WHEN 'ahora' THEN 0 WHEN 'hoy' THEN 1 ELSE 2 END, created_at ASC
   `).all(type);
-  res.json(tasks.map(t => ({
+  const body = tasks.map(t => ({
     id: t.id, contact: t.contact,
     preview: t.key_message || t.preview,
     task: t.task, priority: t.priority,
@@ -551,7 +561,10 @@ app.get('/tasks', (req, res) => {
     actions: t.actions ? (() => { try { return JSON.parse(t.actions); } catch(e) { return []; } })() : [],
     phone: t.phone || null,
     hours: t.hours || 0, createdAt: t.created_at,
-  })));
+  }));
+  const etag = '"' + require('crypto').createHash('md5').update(JSON.stringify(body)).digest('hex').slice(0, 16) + '"';
+  if (req.headers['if-none-match'] === etag) return res.status(304).end();
+  res.set('ETag', etag).set('Cache-Control', 'no-cache').json(body);
 });
 
 // Validar que el :id sea un entero positivo
