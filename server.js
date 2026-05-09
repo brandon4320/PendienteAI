@@ -258,6 +258,21 @@ setInterval(() => {
 }, 30000);
 
 // ─── ANÁLISIS ─────────────────────────────────────────────────────────────────
+async function analyzeWithRetry(contact, history, attempt = 0) {
+  try {
+    return await analyzeConversation(contact, history);
+  } catch(e) {
+    const retriable = e.status === 429 || (e.status >= 500 && e.status < 600) || e.code === 'ECONNRESET';
+    if (retriable && attempt < 2) {
+      const wait = (attempt + 1) * 4000;
+      console.log('[GROQ-RETRY] ' + contact + ' intento ' + (attempt + 1) + ' en ' + wait + 'ms — ' + e.message);
+      await new Promise(r => setTimeout(r, wait));
+      return analyzeWithRetry(contact, history, attempt + 1);
+    }
+    throw e;
+  }
+}
+
 async function analyzeConversation(contact, messages) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
@@ -266,59 +281,64 @@ async function analyzeConversation(contact, messages) {
 
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
+    temperature: 0,
     messages: [{
       role: 'user',
-      content: `Sos el asistente personal de Brandon. Analizá esta conversación de WhatsApp.
+      content: `Sos el asistente personal de Brandon. Analizá esta conversación de WhatsApp y decidí si hay algo pendiente.
 Hora actual: ${timeStr}
 Contacto: ${contact}
 Último mensaje sin respuesta de Brandon: ${lastIsFromOther ? 'SÍ' : 'NO'}
 
-CONVERSACIÓN (con contexto de horas anteriores si existe):
+CONVERSACIÓN:
 ${conv}
 
-BUSCÁ en el contexto completo:
-1. ¿Evento, cita, reunión o plan acordado? ("dale el lunes", "nos vemos mañana", "sino dale X")
-2. ¿Tarea o pedido concreto para Brandon?
-3. ¿Brandon asumió un compromiso? ("yo me ocupo", "te llamo", "ya lo cerramos")
+CLASIFICACIÓN (elegí UNA):
 
-REGLAS:
-- Evento o plan acordado entre ambos → needsAction:true, type:"mio"
-- El otro le pide algo concreto a Brandon → needsAction:true, type:"pendiente"
-- Brandon asumió compromiso → needsAction:true, type:"mio"
-- NOTA: el campo sinResponder NO se usa acá, lo maneja el sistema por separado
-- Charla sin acción ni compromiso concreto → needsAction:false
+needsAction:false — charla sin nada concreto pendiente
+  Ej: "jajaja", "ok gracias", "cómo estás?", "buenas"
+
+needsAction:true, type:"pendiente" — el contacto le pide algo concreto a Brandon
+  Ej: "podés mandarme el presupuesto?", "necesito el dato de...", "cuándo me avisás?"
+
+needsAction:true, type:"mio" — hay un plan acordado O Brandon asumió un compromiso
+  Ej: "nos vemos mañana las 10", "quedamos el jueves a las 3", "dale nos juntamos",
+      "te llamo yo", "yo me encargo", "ya lo arreglo", "mañana te mando"
+
+PRIORIDAD (solo si needsAction:true):
+- "ahora": urgente hoy, tiene hora específica hoy ("a las 3", "ya", "urgente")
+- "hoy": acción para hoy o mañana sin hora específica
+- "semana": plan para esta semana o la próxima
 
 CATEGORÍA:
-- "trabajo": transtide/financiera/cliente/proveedor/logistica/transporte/obra/aduana en nombre, o tema laboral
+- "trabajo": clientes, proveedores, logística, finanzas, aduana, obra — o cualquier tema laboral
 - "personal": amigos, familia, pareja, planes sociales
 
-PRIORIDAD:
-- "ahora": urgente hoy con hora concreta
-- "hoy": acción necesaria hoy o plan para mañana
-- "semana": evento o plan esta semana
-- "ignorar": charla pura sin nada pendiente
+MEETING: si hay fecha/hora/lugar concreto, completalo. Usá formato legible ("mañana", "jueves", "10:00").
 
-Respondé SOLO JSON:
+Respondé SOLO con JSON válido, sin texto extra:
 {
-  "needsAction": true/false,
+  "needsAction": true,
   "type": "pendiente|mio",
-  "priority": "ahora|hoy|semana|ignorar",
+  "priority": "ahora|hoy|semana",
   "category": "trabajo|personal",
-  "keyMessage": "mensaje más relevante (máx 70 chars)",
-  "task": "qué tiene que hacer Brandon, máximo 8 palabras",
-  "meeting": { "date": "día/fecha", "time": "hora", "location": "lugar" } o null,
-  "urgent": true/false
+  "keyMessage": "frase clave del mensaje (máx 70 chars)",
+  "task": "qué tiene que hacer Brandon (máx 8 palabras)",
+  "meeting": { "date": "fecha", "time": "hora", "location": "lugar" },
+  "urgent": false
 }`
     }],
-    max_tokens: 300,
+    max_tokens: 500,
   });
 
   try {
     const content = res.choices[0].message.content.trim();
     const match = content.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : { needsAction: false, priority: 'ignorar' };
+    if (!match) return { needsAction: false };
+    const parsed = JSON.parse(match[0]);
+    if (!parsed.needsAction || parsed.priority === 'ignorar') return { needsAction: false };
+    return parsed;
   } catch(e) {
-    return { needsAction: false, priority: 'ignorar' };
+    return { needsAction: false };
   }
 }
 
@@ -349,17 +369,19 @@ function saveTask(contact, msgs, analysis, contactPhone) {
 
   const actionsJson = extractedActions.length ? JSON.stringify(extractedActions) : null;
 
-  if (analysis.confidence !== undefined && analysis.confidence < 0.7) {
-    console.log('[SKIP-LOW-CONF] ' + contact + ' (conf:' + analysis.confidence + ')');
-    return;
-  }
-
-  const allText = (msgs || []).map(m => (m.text || '').toLowerCase()).join(' ');
-  const generic = new Set(['responder','revisar','enviar','mandar','contactar','confirmar','llamar','consultar','preguntar','contestar','escribir','seguir','hacer','tarea','mensaje','sobre','para','cosa','algo','tema','reunir','reunion','asistir','recibir']);
-  const meaningfulWords = (analysis.task || '').toLowerCase().split(/\s+/).filter(w => w.length >= 4 && !generic.has(w));
-  if (meaningfulWords.length > 0 && !meaningfulWords.some(w => allText.includes(w))) {
-    console.log('[SKIP-HALLUCINATION] ' + contact + ': "' + analysis.task + '" no matchea con mensajes reales');
-    return;
+  // Filtro de alucinación: solo aplica si NO hay meeting detectado (las reuniones ya son validadas por la IA)
+  // Incluye el nombre del contacto en el espacio de búsqueda, y requiere 2+ palabras ausentes para bloquear
+  if (!meeting) {
+    const allText = (msgs || []).map(m => (m.text || '').toLowerCase()).join(' ') + ' ' + contact.toLowerCase();
+    const generic = new Set(['responder','revisar','enviar','mandar','contactar','confirmar','llamar',
+      'consultar','preguntar','contestar','escribir','seguir','hacer','tarea','mensaje','sobre',
+      'para','cosa','algo','tema','reunir','reunion','asistir','recibir','verse','juntarse','hablar']);
+    const meaningfulWords = (analysis.task || '').toLowerCase().split(/\s+/)
+      .filter(w => w.length >= 4 && !generic.has(w));
+    if (meaningfulWords.length >= 2 && !meaningfulWords.some(w => allText.includes(w))) {
+      console.log('[SKIP-HALLUCINATION] ' + contact + ': "' + analysis.task + '" no matchea');
+      return;
+    }
   }
 
   const type = analysis.type || 'pendiente';
@@ -423,7 +445,7 @@ function saveTask(contact, msgs, analysis, contactPhone) {
 }
 
 let sinResponderPending = {};
-function scheduleSinResponder(contact, msgs, analysis) {
+function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
   const lastMsg = msgs[msgs.length - 1]?.text || '';
   if (sinResponderPending[contact]?.timer) clearTimeout(sinResponderPending[contact].timer);
   sinResponderPending[contact] = {
@@ -434,9 +456,10 @@ function scheduleSinResponder(contact, msgs, analysis) {
       if (lastInHistory && lastInHistory.fromMe) return;
       const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='sin_responder' LIMIT 1").get(contact);
       if (!existing) {
-        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type) VALUES (?,?,?,?,?,?,?)")
+        const phone = getCachedPhone(contact) || contactPhone || null;
+        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type,phone) VALUES (?,?,?,?,?,?,?,?)")
           .run(contact, lastMsg.slice(0, 80), (analysis.keyMessage || lastMsg).slice(0, 150),
-            'Responder a ' + contact, 'hoy', analysis.category || 'personal', 'sin_responder');
+            'Responder a ' + contact, 'hoy', analysis.category || 'personal', 'sin_responder', phone);
         console.log('[SIN_RESPONDER - 1h] ' + contact);
         sseBroadcast('task_changed', { type: 'new', taskType: 'sin_responder', contact });
       }
@@ -531,26 +554,32 @@ app.post('/webhook', async (req, res) => {
       }
     }
 
-    if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null };
+    if (!burstBuffer[contact]) burstBuffer[contact] = { timer: null, hasIncoming: false, firstTs: Date.now() };
     if (burstBuffer[contact].timer) clearTimeout(burstBuffer[contact].timer);
-    if (contactPhoneNumber) setCachedPhone(contact, contactPhoneNumber);
+    if (!fromMe) burstBuffer[contact].hasIncoming = true;
+    if (contactPhoneNumber && !fromMe) setCachedPhone(contact, contactPhoneNumber);
+
+    const burstAge = Date.now() - burstBuffer[contact].firstTs;
+    const burstDelay = burstAge > 90000 ? 500 : 20000; // forzar flush si la conv supera 90s
 
     burstBuffer[contact].timer = setTimeout(() => {
+      const { hasIncoming } = burstBuffer[contact];
       delete burstBuffer[contact];
+      if (!hasIncoming) return; // solo mensajes propios — no hay nada que analizar
       enqueue(async () => {
         try {
           const history = getRecentHistory(contact);
           if (!history.length) return;
           const lastIsFromOther = !history[history.length - 1].fromMe;
-          const analysis = await analyzeConversation(contact, history);
+          const analysis = await analyzeWithRetry(contact, history);
           console.log('[ANALYSIS] ' + contact + ': needsAction=' + analysis.needsAction + ' priority=' + analysis.priority + ' type=' + analysis.type + ' task="' + analysis.task + '"');
-          if (analysis.needsAction && analysis.priority !== 'ignorar') {
+          if (analysis.needsAction) {
             saveTask(contact, history, analysis, getCachedPhone(contact));
           }
-          if (lastIsFromOther) scheduleSinResponder(contact, history, analysis);
+          if (lastIsFromOther) scheduleSinResponder(contact, history, analysis, getCachedPhone(contact));
         } catch(e) { console.error('Analysis error [' + contact + ']:', e.message); }
       });
-    }, 20000);
+    }, burstDelay);
 
   } catch(e) { console.error('Webhook error:', e.message); }
 });
