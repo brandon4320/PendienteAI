@@ -253,7 +253,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <script>
 const API='https://pendiente.transtidefreight.com';
-let TOKEN=sessionStorage.getItem('pai_token')||'';
+let TOKEN=localStorage.getItem('pai_token')||'';
 
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 const esc=escHtml;
@@ -269,14 +269,14 @@ function doLogin(){
   const errEl=document.getElementById('loginErr');
   if(!t){errEl.textContent='Ingresá el token';return;}
   TOKEN=t;
-  sessionStorage.setItem('pai_token',TOKEN);
+  localStorage.setItem('pai_token',TOKEN);
   errEl.textContent='';
   loginScreen.style.display='none';
   initApp();
 }
 function showLogin(msg){
   TOKEN='';
-  sessionStorage.removeItem('pai_token');
+  localStorage.removeItem('pai_token');
   document.getElementById('loginToken').value='';
   document.getElementById('loginErr').textContent=msg||'';
   loginScreen.style.display='flex';
