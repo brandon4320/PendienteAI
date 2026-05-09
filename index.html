@@ -175,6 +175,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <script>
 const API='https://pendiente.transtidefreight.com';
 const TOKEN='pendiente2024secret';
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+
 function apiFetch(url,opts={}){return fetch(url,{...opts,headers:{...opts.headers,'X-Api-Token':TOKEN}});}
 
 let data={pendiente:[],sin_responder:[],mio:[]};
@@ -296,7 +299,7 @@ function renderGroup(g,gi){
   let html='<div class="cgroup">'+
     '<div class="cg-hdr">'+
     '<div class="cg-av '+avClass+'">'+ini(g.contact)+'</div>'+
-    '<span class="cg-name">'+g.contact+'</span>'+
+    '<span class="cg-name">'+esc(g.contact)+'</span>'+
     '<span class="cg-emoji"> '+catEmoji+'</span>'+
     (g.tasks.length>1?'<span class="cg-cnt">'+g.tasks.length+'</span>':'')+
     '</div>';
@@ -327,12 +330,12 @@ function renderCard(t,delay){
     '<div class="tc-top">'+
     '<div class="prio-dot '+pc.dot+'"></div>'+
     '<div class="tc-body">'+
-    '<div class="tc-row"><span class="tc-prev">'+t.preview+'</span><span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
+    '<div class="tc-row"><span class="tc-prev">'+esc(t.preview)+'</span><span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
     '<div><span class="tc-pill '+pc.pill+'">'+pc.label+'</span>'+meetBadge+'</div>'+
     '</div></div>'+
     '<div class="tc-detail '+(isOpen?'open':'')+'" onclick="event.stopPropagation()">'+
     '<div class="dl">'+(isMio?'MI COMPROMISO':isSin?'SIN RESPONDER':'TAREA')+'</div>'+
-    '<div class="dtask">'+t.task+'</div>'+
+    '<div class="dtask">'+esc(t.task)+'</div>'+
     '<div class="dactions">'+actions+'</div>'+
     '</div></div>';
 }
