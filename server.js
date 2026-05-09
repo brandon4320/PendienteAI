@@ -404,20 +404,36 @@ function saveTask(contact, msgs, analysis, contactPhone) {
     }
   } else {
     // Para pendiente: si hay tarea del mismo contacto creada en las últimas 2 horas, actualizar
-    const recent = db.prepare(`
-      SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='pendiente'
-      AND created_at > datetime('now','-2 hours') LIMIT 1
-    `).get(contact);
-    if (recent) {
+    const recentList = db.prepare(`
+      SELECT id, task FROM tasks
+      WHERE contact=? AND status='pending' AND type='pendiente'
+      AND created_at > datetime('now', '-2 hours')
+      ORDER BY created_at DESC LIMIT 5
+    `).all(contact);
+
+    // Buscar coincidencia por TEMA: comparar palabras significativas
+    let matchedExisting = null;
+    if (recentList.length > 0) {
+      const generic = new Set(['responder','revisar','enviar','mandar','contactar','confirmar','llamar','consultar','preguntar','contestar','escribir','seguir','hacer','tarea','mensaje','para','sobre','cosa','algo','tema','obtener','recibir']);
+      const newWords = (safeTask || '').toLowerCase().split(/\s+/).filter(w => w.length >= 4 && !generic.has(w));
+      for (const r of recentList) {
+        const oldWords = (r.task || '').toLowerCase().split(/\s+/).filter(w => w.length >= 4 && !generic.has(w));
+        const shared = newWords.filter(w => oldWords.some(o => o.includes(w) || w.includes(o)));
+        if (shared.length > 0) { matchedExisting = r; break; }
+      }
+    }
+
+    if (matchedExisting) {
       db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
         meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0,80),keyMsg,safeTask,analysis.priority||'hoy',
           analysis.urgent?1:0,analysis.category||'personal',
           meeting?.date||null,meeting?.time||null,meeting?.location||null,
-          actionsJson,phoneFromContact,recent.id);
+          actionsJson,phoneFromContact,matchedExisting.id);
       console.log('[PENDIENTE-UPDATE] '+contact+': '+safeTask);
       return;
     }
+    // No match → INSERT separado abajo
   }
 
   // Nueva tarea
@@ -597,4 +613,4 @@ app.get('/health', (req, res) => {
   res.json({ status:'ok', pendingTasks:tasks.n, queueLength:queue.length, historyMsgs:hist.n, sinResponderPending:db.prepare("SELECT COUNT(*) as n FROM sin_responder_pending").get().n });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.3 en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.4 en puerto', process.env.PORT || 3001));
