@@ -446,6 +446,22 @@ app.patch('/tasks/:id/keep', (req, res) => {
   res.sendStatus(200);
 });
 
+app.patch('/tasks/:id/edit', (req, res) => {
+  const { task, priority } = req.body || {};
+  const id = parseInt(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+  if (!task || typeof task !== 'string') return res.status(400).json({ error: 'task required' });
+  const trimmed = task.trim().slice(0, 200);
+  if (trimmed.length < 2) return res.status(400).json({ error: 'task too short' });
+  const validPrio = ['ahora','hoy','semana'].includes(priority) ? priority : null;
+  if (validPrio) {
+    db.prepare("UPDATE tasks SET task=?, priority=? WHERE id=?").run(trimmed, validPrio, id);
+  } else {
+    db.prepare("UPDATE tasks SET task=? WHERE id=?").run(trimmed, id);
+  }
+  res.sendStatus(200);
+});
+
 app.get('/health', (req, res) => {
   const tasks = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
   const hist = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
