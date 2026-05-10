@@ -89,7 +89,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .av-sin{background:var(--purple-bg);color:var(--purple)}
 .av-mio{background:var(--orange-bg);color:var(--orange)}
 .cg-name{font-size:13px;font-weight:700;color:var(--text)}
-.cg-emoji{font-size:12px}
+.cg-icon{display:inline-flex;align-items:center;opacity:0.6}
 .cg-cnt{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted2)}
 
 /* TASK CARD */
@@ -142,7 +142,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .achip-alias{background:#fffbeb;color:var(--amber);border-color:#fde68a}
 .achip-addr{background:#fef2f2;color:var(--red);border-color:#fecaca}
 .achip-wa{background:#ecfdf5;color:#059669;border-color:#a7f3d0}
-.achip-icon{font-size:13px;line-height:1}
+.achip-icon{display:inline-flex;align-items:center;flex-shrink:0}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
@@ -164,7 +164,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 @keyframes out{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
 
 .empty{text-align:center;padding:50px 16px}
-.empty-icon{font-size:40px;margin-bottom:10px}
+.empty-icon{display:flex;justify-content:center;margin-bottom:10px;opacity:0.35}
 .empty-title{font-size:16px;font-weight:700}
 .empty-sub{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.6}
 .loading{text-align:center;padding:50px 16px}
@@ -230,14 +230,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <!-- MODAL EDITAR -->
 <div class="modal-overlay" id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" onclick="closeEdit()">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title" id="editModalTitle">✏️ Editar tarea</div>
+    <div class="modal-title" id="editModalTitle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Editar tarea</div>
     <label class="modal-label" for="editText">Descripción</label>
     <input type="text" class="modal-input" id="editText" maxlength="200" />
     <label class="modal-label">Prioridad</label>
     <div class="modal-prio">
-      <button type="button" class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)">🔴 Urgente</button>
-      <button type="button" class="mp p2" data-p="hoy" onclick="setEditPrio('hoy',this)">🟡 Media</button>
-      <button type="button" class="mp p3" data-p="semana" onclick="setEditPrio('semana',this)">🔵 Baja</button>
+      <button type="button" class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)"><svg width="8" height="8" viewBox="0 0 8 8" style="margin-right:5px"><circle cx="4" cy="4" r="4" fill="var(--p1)"/></svg>Urgente</button>
+      <button type="button" class="mp p2" data-p="hoy" onclick="setEditPrio('hoy',this)"><svg width="8" height="8" viewBox="0 0 8 8" style="margin-right:5px"><circle cx="4" cy="4" r="4" fill="var(--p2)"/></svg>Media</button>
+      <button type="button" class="mp p3" data-p="semana" onclick="setEditPrio('semana',this)"><svg width="8" height="8" viewBox="0 0 8 8" style="margin-right:5px"><circle cx="4" cy="4" r="4" fill="var(--p3)"/></svg>Baja</button>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn-cancel" onclick="closeEdit()">Cancelar</button>
@@ -257,6 +257,30 @@ let TOKEN=localStorage.getItem('pai_token')||'';
 
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 const esc=escHtml;
+
+// ── SVG ICONS ─────────────────────────────────────────────────────────────────
+function svg(path,size=14,fill=false){
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" '+(fill?'fill="currentColor"':'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')+' aria-hidden="true">'+path+'</svg>';
+}
+const IC={
+  wa:    svg('<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>',14,true),
+  cal:   svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+  phone: svg('<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-5.99-5.99 19.79 19.79 0 01-3.07-8.67A2 2 0 014 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>'),
+  mail:  svg('<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'),
+  pin:   svg('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>'),
+  card:  svg('<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>'),
+  check: svg('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+  edit:  svg('<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>'),
+  trash: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>'),
+  clock: svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+  inbox: svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>'),
+  search:svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+  folder:svg('<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'),
+  brief: svg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>'),
+  users: svg('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'),
+  eye:   svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
+  pencil:svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
+};
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 const loginScreen=document.getElementById('loginScreen');
@@ -450,12 +474,12 @@ function hrs(h){
 }
 
 function prioClass(t,bnd){
-  if(bnd==='sin_responder')return{card:'pr-sin',pill:'pill-sin',dot:'dot-sin',label:'👁️ Sin responder'};
-  if(bnd==='mio')return{card:'pr-mio',pill:'pill-mio',dot:'dot-mio',label:'✍️ Mi compromiso'};
+  if(bnd==='sin_responder')return{card:'pr-sin',pill:'pill-sin',dot:'dot-sin',label:'Sin responder'};
+  if(bnd==='mio')return{card:'pr-mio',pill:'pill-mio',dot:'dot-mio',label:'Mi compromiso'};
   const p=t.priority||'semana';
-  if(p==='ahora')return{card:'pr1',pill:'pill-p1',dot:'dot-p1',label:'🔴 Urgente'};
-  if(p==='hoy')return{card:'pr2',pill:'pill-p2',dot:'dot-p2',label:'🟡 Media'};
-  return{card:'pr3',pill:'pill-p3',dot:'dot-p3',label:'🔵 Baja'};
+  if(p==='ahora')return{card:'pr1',pill:'pill-p1',dot:'dot-p1',label:'Urgente'};
+  if(p==='hoy')return{card:'pr2',pill:'pill-p2',dot:'dot-p2',label:'Media'};
+  return{card:'pr3',pill:'pill-p3',dot:'dot-p3',label:'Baja'};
 }
 
 function getFiltered(){
@@ -490,14 +514,15 @@ function renderTasks(){
     const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
     let icon,title,sub;
     if(q){
-      icon='🔍';title='Sin resultados para "'+escHtml(q)+'"';sub='Intentá con otro término';
+      icon=svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',40);
+      title='Sin resultados para "'+escHtml(q)+'"';sub='Intentá con otro término';
     }else if(catFilter!=='all'){
-      icon='🗂️';
+      icon=svg('<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>',40);
       title='Sin tareas de '+(catFilter==='trabajo'?'trabajo':'personal');
       sub='Hay tareas en otras categorías — probá "Todos"';
     }else{
-      const icons={pendiente:'📥',sin_responder:'👁️',mio:'✅'};
-      const msgs={pendiente:'Bandeja vacía',sin_responder:'Todo respondido 🎉',mio:'Sin compromisos'};
+      const icons={pendiente:svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',40),sin_responder:svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',40),mio:svg('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',40)};
+      const msgs={pendiente:'Bandeja vacía',sin_responder:'Todo respondido',mio:'Sin compromisos'};
       icon=icons[bandeja];title=msgs[bandeja];sub='Los mensajes nuevos aparecen automáticamente';
     }
     el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">'+title+'</div><div class="empty-sub">'+sub+'</div></div>';
@@ -507,11 +532,11 @@ function renderTasks(){
   const personal=filtered.filter(t=>t.category!=='trabajo');
   let html='';
   if(trabajo.length){
-    html+='<div class="section-hdr">💼 Trabajo · '+trabajo.length+'</div>';
+    html+='<div class="section-hdr">'+IC.brief+' Trabajo · '+trabajo.length+'</div>';
     groupByContact(trabajo).forEach((g,gi)=>{html+=renderGroup(g,gi);});
   }
   if(personal.length){
-    html+='<div class="section-hdr">👥 Personal · '+personal.length+'</div>';
+    html+='<div class="section-hdr">'+IC.users+' Personal · '+personal.length+'</div>';
     groupByContact(personal).forEach((g,gi)=>{html+=renderGroup(g,gi+100);});
   }
   el.innerHTML=html;
@@ -523,12 +548,12 @@ function renderGroup(g,gi){
   const isMio=bandeja==='mio';
   const isSin=bandeja==='sin_responder';
   const avClass=isMio?'av-mio':isSin?'av-sin':(isWork?'av-w':'av-p');
-  const catEmoji=isMio?'✍️':isSin?'👁️':(isWork?'💼':'👥');
+  const catIcon=isMio?IC.pencil:isSin?IC.eye:(isWork?IC.brief:IC.users);
   let html='<div class="cgroup">'+
     '<div class="cg-hdr">'+
     '<div class="cg-av '+avClass+'">'+ini(g.contact)+'</div>'+
     '<span class="cg-name">'+esc(g.contact)+'</span>'+
-    '<span class="cg-emoji"> '+catEmoji+'</span>'+
+    '<span class="cg-icon"> '+catIcon+'</span>'+
     (g.tasks.length>1?'<span class="cg-cnt">'+g.tasks.length+'</span>':'')+
     '</div>';
   g.tasks.forEach((t,i)=>{html+=renderCard(t,gi*10+i);});
@@ -577,25 +602,25 @@ function renderActionChips(t){
   for(const a of allActions){
     if(a.type==='phone'){
       const safe=escHtml(a.value);
-      html+='<a class="achip achip-tel" href="tel:'+safe+'"><span class="achip-icon">📞</span>Llamar</a>';
+      html+='<a class="achip achip-tel" href="tel:'+safe+'"><span class="achip-icon">'+IC.phone+'</span>Llamar</a>';
     }else if(a.type==='whatsapp'||a.type==='whatsapp_contact'){
       const num=(a.value||'').replace(/\D/g,'');
-      if(num)html+='<a class="achip achip-wa" href="https://wa.me/'+num+'" target="_blank" rel="noopener"><span class="achip-icon">💬</span>WhatsApp</a>';
+      if(num)html+='<a class="achip achip-wa" href="https://wa.me/'+num+'" target="_blank" rel="noopener"><span class="achip-icon">'+IC.wa+'</span>WhatsApp</a>';
     }else if(a.type==='email'){
       const safe=escHtml(a.value);
-      html+='<a class="achip achip-mail" href="mailto:'+safe+'"><span class="achip-icon">✉️</span>Mail</a>';
+      html+='<a class="achip achip-mail" href="mailto:'+safe+'"><span class="achip-icon">'+IC.mail+'</span>Mail</a>';
     }else if(a.type==='cbu'){
       const i=reg(()=>copyToClipboard(a.value,'CBU copiado'));
-      html+='<button type="button" class="achip achip-cbu" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">💸</span>Copiar CBU</button>';
+      html+='<button type="button" class="achip achip-cbu" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">'+IC.card+'</span>Copiar CBU</button>';
     }else if(a.type==='alias'){
       const i=reg(()=>copyToClipboard(a.value,'Alias copiado'));
-      html+='<button type="button" class="achip achip-alias" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">💸</span>Copiar Alias</button>';
+      html+='<button type="button" class="achip achip-alias" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">'+IC.card+'</span>Copiar Alias</button>';
     }else if(a.type==='address'){
       const enc=encodeURIComponent(a.value||'');
-      if(enc)html+='<a class="achip achip-addr" href="https://maps.google.com/?q='+enc+'" target="_blank" rel="noopener"><span class="achip-icon">📍</span>Maps</a>';
+      if(enc)html+='<a class="achip achip-addr" href="https://maps.google.com/?q='+enc+'" target="_blank" rel="noopener"><span class="achip-icon">'+IC.pin+'</span>Maps</a>';
     }else if(a.type==='calendar'){
       const i=reg(()=>openCalendarGoogle(a,t.contact||''));
-      html+='<button type="button" class="achip achip-cal" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">📅</span>Agendar</button>';
+      html+='<button type="button" class="achip achip-cal" onclick="event.stopPropagation();_h['+i+']()"><span class="achip-icon">'+IC.cal+'</span>Agendar</button>';
     }
   }
   return html+'</div>';
@@ -608,27 +633,27 @@ function renderCard(t){
   const pc=prioClass(t,bandeja);
   let meetBadge='';
   if(t.meeting&&(t.meeting.time||t.meeting.date)){
-    meetBadge='<span class="meet-badge">📍 '+esc([t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' '))+'</span>';
+    meetBadge='<span class="meet-badge">'+IC.pin+' '+esc([t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' '))+'</span>';
   }
   let actions='';
   if(isSin){
     actions=
-      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Ya respondí">✅ Ya respondí</button>'+
-      '<button type="button" class="btn-keep" onclick="keepTask('+t.id+')" aria-label="Mover a pendientes">📥 Es pendiente</button>'+
-      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">✏️</button>'+
-      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">🗑</button>';
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Ya respondí">'+IC.check+' Ya respondí</button>'+
+      '<button type="button" class="btn-keep" onclick="keepTask('+t.id+')" aria-label="Mover a pendientes">'+IC.inbox+' Es pendiente</button>'+
+      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
+      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">'+IC.trash+'</button>';
   }else if(isMio){
     actions=
-      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como cumplido">✅ Cumplido</button>'+
-      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">✏️</button>'+
-      '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">😴</button>'+
-      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">🗑</button>';
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como cumplido">'+IC.check+' Cumplido</button>'+
+      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
+      '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">'+IC.clock+'</button>'+
+      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">'+IC.trash+'</button>';
   }else{
     actions=
-      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como listo">✅ Listo</button>'+
-      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">✏️</button>'+
-      '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">😴</button>'+
-      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">🗑</button>';
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como listo">'+IC.check+' Listo</button>'+
+      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
+      '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">'+IC.clock+'</button>'+
+      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">'+IC.trash+'</button>';
   }
   return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
     '<div class="tc-top">'+
