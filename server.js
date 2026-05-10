@@ -347,14 +347,14 @@ function saveTask(contact, msgs, analysis, contactPhone) {
   const extractedActions = extractActions(msgs);
   const meeting = (analysis.meeting?.date || analysis.meeting?.time) ? analysis.meeting : null;
 
-  // Chip de calendario: se genera automáticamente si la IA detectó una reunión/cita
-  if (meeting && !extractedActions.some(a => a.type === 'calendar')) {
+  // Chip de calendario: siempre presente; si la IA detectó reunión se pre-rellena fecha/hora
+  if (!extractedActions.some(a => a.type === 'calendar')) {
     extractedActions.push({
       type: 'calendar',
       title: (analysis.task || '').slice(0, 60),
-      date: meeting.date || null,
-      time: meeting.time || null,
-      location: meeting.location || null,
+      date: meeting ? (meeting.date || null) : null,
+      time: meeting ? (meeting.time || null) : null,
+      location: meeting ? (meeting.location || null) : null,
     });
   }
 
@@ -456,9 +456,12 @@ function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
       const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='sin_responder' LIMIT 1").get(contact);
       if (!existing) {
         const phone = getCachedPhone(contact) || contactPhone || null;
-        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type,phone) VALUES (?,?,?,?,?,?,?,?)")
+        const srActions = [];
+        if (phone) srActions.push({ type: 'whatsapp_contact', value: phone.replace(/\D/g, ''), label: 'WhatsApp' });
+        srActions.push({ type: 'calendar', title: 'Responder a ' + contact, date: null, time: null, location: null });
+        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type,phone,actions) VALUES (?,?,?,?,?,?,?,?,?)")
           .run(contact, lastMsg.slice(0, 80), (analysis.keyMessage || lastMsg).slice(0, 150),
-            'Responder a ' + contact, 'hoy', analysis.category || 'personal', 'sin_responder', phone);
+            'Responder a ' + contact, 'hoy', analysis.category || 'personal', 'sin_responder', phone, JSON.stringify(srActions));
         console.log('[SIN_RESPONDER - 4h] ' + contact);
         sseBroadcast('task_changed', { type: 'new', taskType: 'sin_responder', contact });
       }
