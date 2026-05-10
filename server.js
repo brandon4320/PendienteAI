@@ -460,10 +460,10 @@ function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
         db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type,phone) VALUES (?,?,?,?,?,?,?,?)")
           .run(contact, lastMsg.slice(0, 80), (analysis.keyMessage || lastMsg).slice(0, 150),
             'Responder a ' + contact, 'hoy', analysis.category || 'personal', 'sin_responder', phone);
-        console.log('[SIN_RESPONDER - 1h] ' + contact);
+        console.log('[SIN_RESPONDER - 4h] ' + contact);
         sseBroadcast('task_changed', { type: 'new', taskType: 'sin_responder', contact });
       }
-    }, 60 * 60 * 1000)
+    }, 4 * 60 * 60 * 1000)
   };
 }
 
