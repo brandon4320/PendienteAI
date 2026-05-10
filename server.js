@@ -79,6 +79,7 @@ if (!cols.includes('from_me'))     db.exec("ALTER TABLE tasks ADD COLUMN from_me
 if (!cols.includes('actions'))     db.exec("ALTER TABLE tasks ADD COLUMN actions TEXT");
 if (!cols.includes('phone'))       db.exec("ALTER TABLE tasks ADD COLUMN phone TEXT");
 if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
+db.exec("CREATE TABLE IF NOT EXISTS contact_phones (contact TEXT PRIMARY KEY, phone TEXT)");
 db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();
 
 function cleanOldData() {
@@ -491,12 +492,17 @@ const phoneCache = {};
 const PHONE_CACHE_TTL = 24 * 60 * 60 * 1000;
 function setCachedPhone(contact, phone) {
   phoneCache[contact] = { phone, ts: Date.now() };
+  db.prepare("INSERT OR REPLACE INTO contact_phones (contact, phone) VALUES (?,?)").run(contact, phone);
 }
 function getCachedPhone(contact) {
   const e = phoneCache[contact];
-  if (!e) return null;
-  if (Date.now() - e.ts > PHONE_CACHE_TTL) { delete phoneCache[contact]; return null; }
-  return e.phone;
+  if (e) {
+    if (Date.now() - e.ts > PHONE_CACHE_TTL) { delete phoneCache[contact]; }
+    else return e.phone;
+  }
+  const row = db.prepare("SELECT phone FROM contact_phones WHERE contact=?").get(contact);
+  if (row?.phone) { phoneCache[contact] = { phone: row.phone, ts: Date.now() }; return row.phone; }
+  return null;
 }
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
@@ -653,15 +659,22 @@ app.patch('/tasks/:id/keep', (req, res) => {
 app.patch('/tasks/:id/edit', (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'invalid id' });
-  const { task, priority } = req.body || {};
+  const { task, priority, phone } = req.body || {};
   if (!task || typeof task !== 'string') return res.status(400).json({ error: 'task required' });
   const trimmed = task.trim().slice(0, 200);
   if (trimmed.length < 2) return res.status(400).json({ error: 'task too short' });
   const validPrio = ['ahora', 'hoy', 'semana'].includes(priority) ? priority : null;
+  const cleanPhone = phone ? phone.replace(/\D/g, '') : null;
   if (validPrio) {
-    db.prepare("UPDATE tasks SET task=?, priority=? WHERE id=?").run(trimmed, validPrio, id);
+    db.prepare("UPDATE tasks SET task=?, priority=?" + (cleanPhone ? ', phone=?' : '') + " WHERE id=?")
+      .run(...(cleanPhone ? [trimmed, validPrio, cleanPhone, id] : [trimmed, validPrio, id]));
   } else {
-    db.prepare("UPDATE tasks SET task=? WHERE id=?").run(trimmed, id);
+    db.prepare("UPDATE tasks SET task=?" + (cleanPhone ? ', phone=?' : '') + " WHERE id=?")
+      .run(...(cleanPhone ? [trimmed, cleanPhone, id] : [trimmed, id]));
+  }
+  if (cleanPhone) {
+    const t = db.prepare("SELECT contact FROM tasks WHERE id=?").get(id);
+    if (t?.contact) setCachedPhone(t.contact, cleanPhone);
   }
   sseBroadcast('task_changed', { type: 'edited', id });
   res.sendStatus(200);
