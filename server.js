@@ -133,7 +133,6 @@ function extractActions(messages) {
         else normalized = '+549' + normalized;
       }
       actions.push({ type: 'phone', value: normalized, label: p.trim() });
-      actions.push({ type: 'whatsapp', value: normalized.replace(/\D/g, ''), label: 'WhatsApp directo' });
     }
   }
 
