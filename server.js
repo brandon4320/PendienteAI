@@ -501,11 +501,14 @@ function getCachedPhone(contact) {
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
-  // Auth: requerir cabecera siempre (fix: antes solo rechazaba si estaba presente Y era incorrecta)
+  // Auth: IPs internas (Docker + localhost) siempre permitidas; externas requieren WAHA_API_KEY
+  const ip = req.ip || '';
+  const isTrustedIP = ip === '::1' || ip === '127.0.0.1' || ip.startsWith('::ffff:127.') || ip.startsWith('::ffff:172.') || ip.startsWith('172.');
   const wahaKey = req.headers['x-api-key'];
   const expectedKey = process.env.WAHA_API_KEY;
-  if (!expectedKey || !wahaKey || wahaKey !== expectedKey) {
-    console.log('[WEBHOOK] Rechazado - auth fallida de', req.ip);
+  const keyOk = expectedKey && wahaKey === expectedKey;
+  if (!isTrustedIP && !keyOk) {
+    console.log('[WEBHOOK] Rechazado - auth fallida de', ip);
     return res.sendStatus(403);
   }
 
