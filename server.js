@@ -529,6 +529,7 @@ app.post('/webhook', async (req, res) => {
     // Extraer número de teléfono del JID de WAHA — strip @server y cualquier no-dígito
     const rawFrom = (payload.from || '').replace(/@.*$/, '').replace(/\D/g, '');
     const contactPhoneNumber = rawFrom.length >= 7 ? rawFrom : null;
+    if (!fromMe) console.log('[PHONE-DEBUG] contact=' + contact + ' payload.from=' + payload.from + ' extracted=' + contactPhoneNumber);
     const mediaType = payload._data?.type || payload.type || '';
     const mediaUrl = payload.media?.url || payload._data?.mediaUrl || null;
     const mimetype = payload.media?.mimetype || payload._data?.mimetype || '';
