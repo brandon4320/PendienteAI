@@ -727,4 +727,13 @@ app.get('/stream', (req, res) => {
   });
 });
 
+app.delete('/reset', (req, res) => {
+  db.prepare("DELETE FROM tasks").run();
+  db.prepare("DELETE FROM conv_history").run();
+  db.prepare("DELETE FROM sin_responder_pending").run();
+  sseBroadcast('task_changed', { type: 'reset' });
+  console.log('[RESET] DB limpiada');
+  res.json({ ok: true });
+});
+
 app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.7 en puerto', process.env.PORT || 3001));
