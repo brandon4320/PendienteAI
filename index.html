@@ -345,7 +345,7 @@ function toastUndo(msg,undoFn){
   el.classList.add('show');clearTimeout(tt);
   tt=setTimeout(()=>{el.classList.remove('show');ub.style.display='none';_toastUndoFn=null;},4200);
 }
-function async function resetAll(){
+async function resetAll(){
   if(!confirm('¿Borrar TODAS las tareas y el historial? Esta acción no se puede deshacer.')) return;
   const btn = document.getElementById('resetBtn');
   btn.textContent = '⏳';
@@ -368,7 +368,7 @@ function async function resetAll(){
   }
 }
 
-setConn(ok){`
+function setConn(ok){
   document.getElementById('dot').className='dot'+(ok?'':' off');
   document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';
 }
