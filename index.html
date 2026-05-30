@@ -75,7 +75,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* CONTENT */
-.content{flex:1;overflow-y:auto;padding:10px 14px 32px;background:var(--bg)}
+.content{flex:1;overflow-y:auto;padding:10px 14px max(96px,calc(env(safe-area-inset-bottom) + 88px));background:var(--bg)}
 
 /* SECCIÓN */
 .section-hdr{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
@@ -175,6 +175,58 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .toast{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);border-radius:11px;padding:9px 16px;font-size:12px;font-weight:600;color:white;white-space:nowrap;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;display:flex;align-items:center;gap:0}
 .toast.show{transform:translateX(-50%) translateY(0);pointer-events:all}
 .toast-undo{margin-left:10px;background:transparent;border:1px solid rgba(255,255,255,0.5);border-radius:7px;color:white;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;flex-shrink:0}
+
+/* MODAL FEEDBACK (bottom sheet) */
+.modal-feedback{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:flex-end;justify-content:center;z-index:320}
+.modal-feedback.show{display:flex}
+.mf-box{background:var(--card);border-radius:18px 18px 0 0;padding:20px 20px max(20px,env(safe-area-inset-bottom));width:100%;max-width:440px;box-shadow:0 -4px 30px rgba(0,0,0,0.25);animation:sheetUp .28s cubic-bezier(.34,1.3,.64,1)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mf-title{font-size:16px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.mf-sub{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.4;word-break:break-word}
+.mf-btns{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
+.mf-btn-error,.mf-btn-done{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid;min-height:48px}
+.mf-btn-error{background:var(--amber-bg);border-color:var(--amber-b);color:var(--amber)}
+.mf-btn-done{background:var(--green-bg);border-color:var(--green-b);color:var(--green)}
+.mf-cancel{width:100%;padding:12px;background:transparent;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;min-height:44px}
+
+/* FAB QUICK-ADD */
+.fab{position:fixed;right:16px;bottom:max(20px,env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--green);border:none;color:#fff;box-shadow:0 6px 18px rgba(22,163,74,0.45);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:150}
+
+/* QUICK-ADD (bottom sheet) */
+.qa-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:flex-end;justify-content:center;z-index:320}
+.qa-overlay.show{display:flex}
+.qa-box{background:var(--card);border-radius:18px 18px 0 0;padding:18px 18px max(18px,env(safe-area-inset-bottom));width:100%;max-width:440px;box-shadow:0 -4px 30px rgba(0,0,0,0.25);animation:sheetUp .28s cubic-bezier(.34,1.3,.64,1)}
+.qa-title{font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.qa-text{width:100%;min-height:84px;padding:12px;border:1px solid var(--border);border-radius:11px;font-size:16px;font-family:var(--font);color:var(--text);background:var(--bg);outline:none;resize:none;line-height:1.45}
+.qa-text:focus{border-color:var(--green)}
+.qa-row{display:flex;gap:8px;margin-top:12px;align-items:stretch}
+.qa-mic{width:52px;flex-shrink:0;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.qa-mic.rec{background:var(--red-bg);border-color:var(--red-b);color:var(--red);animation:breathe 1.2s infinite}
+.qa-send{flex:1;padding:14px;background:var(--green);border:none;color:#fff;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;min-height:48px}
+.qa-send:disabled{opacity:0.5}
+.qa-status{font-size:12px;color:var(--muted);margin-top:10px;min-height:16px;text-align:center}
+.qa-status.rec{color:var(--red);font-weight:600}
+.qa-cancel{width:100%;padding:10px;margin-top:4px;background:transparent;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;min-height:44px}
+
+/* TOUCH TARGETS */
+.bt{min-height:44px}
+.bt svg{vertical-align:-3px;margin-right:3px}
+.cpill{padding:9px 13px}
+.cpill svg{vertical-align:-2px;margin-right:3px}
+.btn-reset,.btn-refresh{min-height:40px}
+
+/* PRESS FEEDBACK */
+.tcard{transition:transform .1s}
+.tcard:active{transform:scale(.992)}
+.bt:active,.cpill:active,.btn-refresh:active,.btn-reset:active,.btn-ok:active,.btn-keep:active,.btn-zz:active,.btn-edit:active,.btn-x:active,.mp:active,.btn-save:active,.btn-cancel:active,.fab:active,.qa-send:active,.qa-mic:active,.mf-btn-error:active,.mf-btn-done:active{transform:scale(.96)}
+
+/* FOCUS VISIBLE (teclado) */
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[role="article"]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* REDUCED MOTION */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
 </style>
 </head>
 <body>
@@ -198,13 +250,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     </div>
     <div class="btabs">
       <button type="button" class="bt active" data-bandeja="pendiente" onclick="setBandeja('pendiente',this)">
-        📥 Pendientes <span class="bcount red" id="bc-p" style="display:none">0</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>Pendientes <span class="bcount red" id="bc-p" style="display:none">0</span>
       </button>
       <button type="button" class="bt sin" data-bandeja="sin_responder" onclick="setBandeja('sin_responder',this)">
-        👁️ Sin resp. <span class="bcount purple" id="bc-s" style="display:none">0</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Sin resp. <span class="bcount purple" id="bc-s" style="display:none">0</span>
       </button>
       <button type="button" class="bt mio" data-bandeja="mio" onclick="setBandeja('mio',this)">
-        ✅ Mis comp. <span class="bcount orange" id="bc-m" style="display:none">0</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Mis comp. <span class="bcount orange" id="bc-m" style="display:none">0</span>
       </button>
     </div>
   </div>
@@ -212,13 +264,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="toolbar">
     <div class="cat-pills">
       <button type="button" class="cpill active" onclick="setCat('all',this)">Todos</button>
-      <button type="button" class="cpill w" onclick="setCat('trabajo',this)">💼 Trabajo</button>
-      <button type="button" class="cpill p" onclick="setCat('personal',this)">👥 Personal</button>
+      <button type="button" class="cpill w" onclick="setCat('trabajo',this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>Trabajo</button>
+      <button type="button" class="cpill p" onclick="setCat('personal',this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Personal</button>
     </div>
     <div class="search-wrap">
       <input type="search" class="search-input" id="searchInput" placeholder="Buscar..." oninput="renderTasks()" aria-label="Buscar tareas">
     </div>
-    <button type="button" class="btn-reset" id="resetBtn" onclick="resetAll()" title="Borrar todo">🗑️</button>
+    <button type="button" class="btn-reset" id="resetBtn" onclick="resetAll()" title="Borrar todo" aria-label="Borrar todo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>
      <button type="button" class="btn-refresh" id="scanBtn" onclick="loadAll()" aria-label="Actualizar tareas">
       <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
     </button>
@@ -230,15 +282,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <!-- MODAL FEEDBACK -->
-<div class="modal-feedback" id="feedbackModal">
-  <div class="mf-box">
-    <div class="mf-title">🗑️ ¿Por qué descartás esta tarea?</div>
+<div class="modal-feedback" id="feedbackModal" role="dialog" aria-modal="true" aria-label="Descartar tarea" onclick="closeFeedback()">
+  <div class="mf-box" onclick="event.stopPropagation()">
+    <div class="mf-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>¿Por qué descartás esta tarea?</div>
     <div class="mf-sub" id="feedbackTaskPreview"></div>
     <div class="mf-btns">
-      <button class="mf-btn-error" onclick="submitFeedback('error')">🤖 La IA se equivocó</button>
-      <button class="mf-btn-done" onclick="submitFeedback('done')">✅ Ya lo resolví</button>
+      <button type="button" class="mf-btn-error" onclick="submitFeedback('error')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>La IA se equivocó</button>
+      <button type="button" class="mf-btn-done" onclick="submitFeedback('done')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Ya lo resolví</button>
     </div>
-    <button class="mf-cancel" onclick="closeFeedback()">Cancelar</button>
+    <button type="button" class="mf-cancel" onclick="closeFeedback()">Cancelar</button>
   </div>
 </div>
 
@@ -260,6 +312,27 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button type="button" class="btn-cancel" onclick="closeEdit()">Cancelar</button>
       <button type="button" class="btn-save" onclick="saveEdit()">Guardar</button>
     </div>
+  </div>
+</div>
+
+<!-- FAB QUICK-ADD -->
+<button type="button" class="fab" id="fab" onclick="openQuickAdd()" aria-label="Agregar tarea" style="display:none">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- MODAL QUICK-ADD -->
+<div class="qa-overlay" id="quickAdd" role="dialog" aria-modal="true" aria-label="Agregar tarea" onclick="closeQuickAdd()">
+  <div class="qa-box" onclick="event.stopPropagation()">
+    <div class="qa-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nueva tarea</div>
+    <textarea class="qa-text" id="qaText" placeholder="Escribí o dictá una tarea… ej: llamar al contador mañana a la mañana" maxlength="300"></textarea>
+    <div class="qa-row">
+      <button type="button" class="qa-mic" id="qaMic" onclick="toggleMic()" aria-label="Grabar audio">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button type="button" class="qa-send" id="qaSend" onclick="sendQuickText()">Anotar</button>
+    </div>
+    <div class="qa-status" id="qaStatus" aria-live="polite"></div>
+    <button type="button" class="qa-cancel" onclick="closeQuickAdd()">Cancelar</button>
   </div>
 </div>
 
@@ -361,7 +434,7 @@ function toastUndo(msg,undoFn){
 async function resetAll(){
   if(!confirm('¿Borrar TODAS las tareas y el historial? Esta acción no se puede deshacer.')) return;
   const btn = document.getElementById('resetBtn');
-  btn.textContent = '⏳';
+  btn.style.opacity = '0.5';
   btn.disabled = true;
   try {
     const r = await apiFetch(API+'/reset', {method:'DELETE'});
@@ -376,7 +449,7 @@ async function resetAll(){
   } catch(e) {
     toast('Error: '+e.message);
   } finally {
-    btn.textContent = '🗑️';
+    btn.style.opacity = '';
     btn.disabled = false;
   }
 }
@@ -536,10 +609,18 @@ function getFiltered(){
   );
   return tasks;
 }
+const PRANK={ahora:0,hoy:1,semana:2};
+function prank(t){const r=PRANK[t.priority];return r===undefined?1:r;}
 function groupByContact(tasks){
   const map={},order=[];
   tasks.forEach(t=>{if(!map[t.contact]){map[t.contact]=[];order.push(t.contact);}map[t.contact].push(t);});
-  return order.map(c=>({contact:c,tasks:map[c]}));
+  const groups=order.map(c=>({
+    contact:c,
+    tasks:map[c].slice().sort((a,b)=>prank(a)-prank(b)||(b.hours||0)-(a.hours||0))
+  }));
+  // Grupos: el contacto con la tarea más urgente primero
+  groups.sort((g1,g2)=>Math.min(...g1.tasks.map(prank))-Math.min(...g2.tasks.map(prank)));
+  return groups;
 }
 
 // ── HANDLER REGISTRY ─────────────────────────────────────────────────────────
@@ -689,13 +770,13 @@ function renderCard(t){
       '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como cumplido">'+IC.check+' Cumplido</button>'+
       '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
       '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">'+IC.clock+'</button>'+
-      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">'+IC.trash+'</button>';
+      '<button type="button" class="btn-x" onclick="openFeedback(event,'+t.id+')" aria-label="Descartar">'+IC.trash+'</button>';
   }else{
     actions=
       '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como listo">'+IC.check+' Listo</button>'+
       '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
       '<button type="button" class="btn-zz" onclick="snooze('+t.id+')" aria-label="Posponer">'+IC.clock+'</button>'+
-      '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">'+IC.trash+'</button>';
+      '<button type="button" class="btn-x" onclick="openFeedback(event,'+t.id+')" aria-label="Descartar">'+IC.trash+'</button>';
   }
   return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
     '<div class="tc-top">'+
@@ -729,8 +810,8 @@ function _removeLocal(id){for(const k of Object.keys(data))data[k]=data[k].filte
 async function _apiDelete(id){try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}}
 let feedbackId = null;
 
-function openFeedback(id) {
-  event.stopPropagation();
+function openFeedback(e, id) {
+  if (e) e.stopPropagation();
   feedbackId = id;
   // Buscar la tarea para mostrar preview
   let task = null;
@@ -780,7 +861,10 @@ function deleteTask(id){
 
 // ── MODAL: ESC cierra, Enter guarda ──────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('editModal').classList.contains('show'))closeEdit();
+  if(e.key!=='Escape')return;
+  if(document.getElementById('editModal').classList.contains('show'))closeEdit();
+  else if(document.getElementById('quickAdd').classList.contains('show'))closeQuickAdd();
+  else if(document.getElementById('feedbackModal').classList.contains('show'))closeFeedback();
 });
 document.getElementById('editText').addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault();saveEdit();}
@@ -850,7 +934,89 @@ _cnt.addEventListener('touchend',e=>{
   _tcid=null;
 },{passive:true});
 
+// ── QUICK-ADD (texto + audio) ──────────────────────────────────────────────────
+function openQuickAdd(){
+  const st=document.getElementById('qaStatus');
+  document.getElementById('qaText').value='';
+  st.textContent='';st.className='qa-status';
+  document.getElementById('qaSend').disabled=false;
+  document.getElementById('quickAdd').classList.add('show');
+  setTimeout(()=>document.getElementById('qaText').focus(),120);
+}
+function closeQuickAdd(){
+  if(_rec&&_rec.state==='recording'){_discardRec=true;try{_rec.stop();}catch(e){}}
+  document.getElementById('quickAdd').classList.remove('show');
+}
+async function sendQuickText(){
+  const t=document.getElementById('qaText').value.trim();
+  if(t.length<2){toast('Escribí algo primero');return;}
+  const btn=document.getElementById('qaSend');
+  const st=document.getElementById('qaStatus');
+  btn.disabled=true;st.className='qa-status';st.textContent='Anotando…';
+  try{
+    const r=await apiFetch(API+'/bot/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||'error');
+    closeQuickAdd();
+    toast(j.task?('✅ '+j.task):'✅ Anotado');
+    loadAll();
+  }catch(e){
+    if(e.message!=='401')st.textContent='No se pudo anotar, probá de nuevo';
+    btn.disabled=false;
+  }
+}
+let _rec=null,_chunks=[],_stream=null,_discardRec=false;
+async function toggleMic(){
+  const mic=document.getElementById('qaMic');
+  const st=document.getElementById('qaStatus');
+  if(_rec&&_rec.state==='recording'){_rec.stop();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){
+    toast('Tu navegador no permite grabar audio');return;
+  }
+  try{_stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){toast('Permiso de micrófono denegado');return;}
+  _chunks=[];_discardRec=false;
+  let mime='';
+  for(const m of ['audio/mp4','audio/webm','audio/ogg']){
+    try{if(MediaRecorder.isTypeSupported(m)){mime=m;break;}}catch(e){}
+  }
+  try{_rec=mime?new MediaRecorder(_stream,{mimeType:mime}):new MediaRecorder(_stream);}
+  catch(e){_rec=new MediaRecorder(_stream);}
+  _rec.ondataavailable=e=>{if(e.data&&e.data.size)_chunks.push(e.data);};
+  _rec.onstop=async()=>{
+    mic.classList.remove('rec');
+    if(_stream){_stream.getTracks().forEach(tr=>tr.stop());_stream=null;}
+    if(_discardRec){_discardRec=false;return;}
+    const blob=new Blob(_chunks,{type:(_rec&&_rec.mimeType)||mime||'audio/webm'});
+    if(blob.size<1200){st.className='qa-status';st.textContent='Audio muy corto';return;}
+    st.className='qa-status';st.textContent='Transcribiendo…';
+    try{
+      const b64=await blobToB64(blob);
+      const r=await apiFetch(API+'/bot/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:b64,mime:blob.type})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||'error');
+      closeQuickAdd();
+      toast(j.task?('✅ '+j.task):'✅ Anotado');
+      loadAll();
+    }catch(e){
+      if(e.message!=='401')st.textContent='No se entendió el audio, probá de nuevo';
+    }
+  };
+  _rec.start();
+  mic.classList.add('rec');
+  st.className='qa-status rec';st.textContent='Grabando… tocá el micrófono para terminar';
+}
+function blobToB64(blob){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result).split(',')[1]||'');
+    fr.onerror=rej;
+    fr.readAsDataURL(blob);
+  });
+}
+
 function initApp(){
+  const fab=document.getElementById('fab');if(fab)fab.style.display='flex';
   const saved=localStorage.getItem('pai_bandeja');
   if(saved&&['pendiente','sin_responder','mio'].includes(saved)){
     bandeja=saved;

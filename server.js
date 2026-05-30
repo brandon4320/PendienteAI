@@ -188,6 +188,38 @@ function extractActions(messages) {
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ─── AUDIO (Whisper) ──────────────────────────────────────────────────────────
+// Mapea el mimetype del audio a una extensión que Groq/Whisper reconozca.
+function audioExtFromMime(mimetype) {
+  const m = (mimetype || '').toLowerCase();
+  if (m.includes('webm')) return '.webm';
+  if (m.includes('mp4') || m.includes('m4a') || m.includes('aac')) return '.m4a';
+  if (m.includes('mpeg') || m.includes('mp3')) return '.mp3';
+  if (m.includes('wav')) return '.wav';
+  return '.ogg';
+}
+
+// Transcribe un buffer de audio ya descargado. Devuelve el texto o null.
+async function transcribeBuffer(audioBuffer, mimetype) {
+  if (audioBuffer.length > 25 * 1024 * 1024) { console.error('[AUDIO] Archivo muy grande'); return null; }
+  const os = require('os');
+  const tmpPath = path.join(os.tmpdir(), 'pai-audio-' + Date.now() + audioExtFromMime(mimetype));
+  // writeFile async — no bloquea el event loop
+  await fsAsync.writeFile(tmpPath, audioBuffer);
+  try {
+    const transcription = await groq.audio.transcriptions.create({
+      file: fsSync.createReadStream(tmpPath),
+      model: 'whisper-large-v3-turbo',
+      language: 'es',
+      response_format: 'json',
+    });
+    const text = transcription.text?.trim() || '';
+    console.log('[AUDIO] Transcrito (' + text.length + ' chars): ' + text.slice(0, 80));
+    return text;
+  } finally {
+    fsAsync.unlink(tmpPath).catch(() => {});
+  }
+}
+
 async function transcribeAudio(mediaUrl, mimetype) {
   try {
     const WAHA_API_KEY = process.env.WAHA_API_KEY;
@@ -197,26 +229,7 @@ async function transcribeAudio(mediaUrl, mimetype) {
     if (!audioRes.ok) { console.error('[AUDIO] Error descargando:', audioRes.status); return null; }
 
     const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
-    if (audioBuffer.length > 25 * 1024 * 1024) { console.error('[AUDIO] Archivo muy grande'); return null; }
-
-    const os = require('os');
-    const tmpPath = path.join(os.tmpdir(), 'pai-audio-' + Date.now() + '.ogg');
-    // writeFile async — no bloquea el event loop
-    await fsAsync.writeFile(tmpPath, audioBuffer);
-
-    try {
-      const transcription = await groq.audio.transcriptions.create({
-        file: fsSync.createReadStream(tmpPath),
-        model: 'whisper-large-v3-turbo',
-        language: 'es',
-        response_format: 'json',
-      });
-      const text = transcription.text?.trim() || '';
-      console.log('[AUDIO] Transcrito (' + text.length + ' chars): ' + text.slice(0, 80));
-      return text;
-    } finally {
-      fsAsync.unlink(tmpPath).catch(() => {});
-    }
+    return await transcribeBuffer(audioBuffer, mimetype);
   } catch(e) {
     console.error('[AUDIO] Error:', e.message);
     return null;
@@ -525,6 +538,7 @@ function getCachedPhone(contact) {
 
 // ─── BOT: MENSAJES A MÍ MISMO ────────────────────────────────────────────────
 const MY_WA_NUMBER = process.env.MY_WA_NUMBER || '17542365652@c.us';
+const SERVWHITE_NUMBER = '61560420573356@lid';
 // Detectar si un mensaje es del propio Brandon (self-chat o mensaje desde su número)
 function isBrandonSelf(payload) {
   const from = payload.from || '';
@@ -555,34 +569,29 @@ async function sendWAMessage(to, text) {
 async function processBotCommand(text, fromId) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
-  const ROBOT = '\uD83E\uDD16';
-  const CHECK = '\u2705';
-  const CROSS = '\u274C';
+  const ROBOT = String.fromCodePoint(0x1F916);
+  const CHECK = String.fromCodePoint(0x2705);
+  const CROSS = String.fromCodePoint(0x274C);
 
-  // Consulta de tareas pendientes
-  if (/qu[eé]|cu[aá]les|pendiente|tarea|compromiso|lista|mostrame|tengo/i.test(text)) {
-    const tasks = db.prepare("SELECT type, task, contact FROM tasks WHERE status='pending' ORDER BY type, created_at ASC LIMIT 10").all();
+  if (/qu[e\u00e9]|cu[a\u00e1]les|pendiente|tarea|compromiso|lista|mostrame|tengo/i.test(text)) {
+    const tasks = db.prepare("SELECT type, task, contact FROM tasks WHERE status=\'pending\' ORDER BY type, created_at ASC LIMIT 10").all();
     if (!tasks.length) {
-      await sendWAMessage(fromId, ROBOT + ' No tens nada pendiente');
-      return;
+      if (fromId) await sendWAMessage(fromId, ROBOT + ' No tens nada pendiente');
+      return { query: true, count: 0 };
     }
     let msg = ROBOT + ' Tus pendientes:\n';
     tasks.forEach(function(t, i) {
       const c = (t.contact && t.contact !== 'Yo') ? ' (' + t.contact + ')' : '';
       msg += (i + 1) + '. ' + t.task + c + '\n';
     });
-    await sendWAMessage(fromId, msg.trim());
-    return;
+    if (fromId) await sendWAMessage(fromId, msg.trim());
+    return { query: true, count: tasks.length };
   }
 
-  // Crear tarea con IA
   try {
     const res = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      messages: [{
-        role: 'user',
-        content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea o evento. Hora: ' + timeStr + '. Mensaje: "' + text + '". Interpreta que quiere hacer y crea la tarea. Responde SOLO JSON valido: {"task":"descripcion clara max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","contact":"nombre si hay sino null","meeting":{"date":"fecha si hay sino null","time":"hora si hay sino null"},"reply":"confirmacion corta max 10 palabras"}'
-      }],
+      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
       max_tokens: 250,
     });
     const match = res.choices[0].message.content.match(/\{[\s\S]*\}/);
@@ -591,14 +600,15 @@ async function processBotCommand(text, fromId) {
     if (!a.task) throw new Error('no task');
     const meet = (a.meeting && (a.meeting.date || a.meeting.time)) ? a.meeting : null;
     db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(a.contact || 'Yo', text.slice(0, 80), text.slice(0, 150), a.task, a.priority || 'hoy', 0, a.category || 'personal', a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
+      .run(a.contact || 'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority || 'hoy', 0, a.category || 'personal', a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
     sseBroadcast('task_changed', { type: 'new', taskType: a.type });
     console.log('[BOT] Tarea creada: ' + a.task);
-    const reply = a.reply || 'Anotado: ' + a.task;
-    await sendWAMessage(fromId, ROBOT + ' ' + CHECK + ' ' + reply);
+    if (fromId) await sendWAMessage(fromId, ROBOT + ' ' + CHECK + ' ' + (a.reply || 'Anotado: ' + a.task));
+    return a;
   } catch(e) {
     console.error('[BOT] Error:', e.message);
-    await sendWAMessage(fromId, ROBOT + ' ' + CROSS + ' No entendi, intenta de nuevo');
+    if (fromId) await sendWAMessage(fromId, ROBOT + ' ' + CROSS + ' No entendi, intenta de nuevo');
+    throw e;
   }
 }
 app.post('/webhook', async (req, res) => {
@@ -627,6 +637,7 @@ app.post('/webhook', async (req, res) => {
     let text = payload.body || '';
     const contact = payload._data?.notifyName || payload.from || '';
     const fromMe = payload.fromMe || false;
+    console.log('[DEBUG-IN] from=' + (payload.from||'?') + ' fromMe=' + fromMe + ' body=' + (payload.body||'').slice(0,40));
 
     // Extraer número de teléfono del JID de WAHA
     // @lid = Privacy ID de WhatsApp (no es un número real) — ignorar
@@ -655,7 +666,7 @@ app.post('/webhook', async (req, res) => {
     if (!text || text.length < 3) return;
 
     // ── BOT: Si Brandon se manda mensajes a sí mismo (después de transcripción) ──
-    if (fromMe && isBrandonSelf(payload) && text && text.length >= 3) {
+    if ((fromMe && isBrandonSelf(payload) || (payload.from || "").includes("61560420573356")) && text && text.length >= 3) {
       console.log('[BOT] Comando recibido: ' + text.slice(0,50));
       const selfId = payload.from || '';
       enqueue(async () => {
@@ -859,6 +870,37 @@ app.patch('/tasks/:id/feedback', (req, res) => {
   res.sendStatus(200);
 });
 
+
+app.post('/bot/command', async (req, res) => {
+  const text = (req.body && req.body.text) || '';
+  if (!text || text.length < 2) return res.status(400).json({ error: 'texto vacio' });
+  try {
+    const r = await processBotCommand(text, null);
+    res.json({ ok: true, task: r?.task || null, query: !!r?.query });
+  } catch(e) {
+    console.error('[SHORTCUT] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Quick-add por voz desde la PWA: recibe audio base64, transcribe con Whisper
+// y lo procesa como un comando del bot.
+app.post('/bot/audio', async (req, res) => {
+  const { audio, mime } = req.body || {};
+  if (!audio || typeof audio !== 'string') return res.status(400).json({ error: 'audio vacio' });
+  try {
+    const buffer = Buffer.from(audio, 'base64');
+    if (!buffer.length) return res.status(400).json({ error: 'audio invalido' });
+    const text = await transcribeBuffer(buffer, mime || '');
+    if (!text || text.trim().length < 2) return res.status(422).json({ error: 'no se entendio el audio' });
+    const r = await processBotCommand(text, null);
+    res.json({ ok: true, text, task: r?.task || null, query: !!r?.query });
+  } catch(e) {
+    console.error('[AUDIO-WEB] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/reset', (req, res) => {
   db.prepare("DELETE FROM tasks").run();
   db.prepare("DELETE FROM conv_history").run();
@@ -868,4 +910,4 @@ app.delete('/reset', (req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.8 - 7 en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.9 - quick-add web (texto+audio) en puerto', process.env.PORT || 3001));
