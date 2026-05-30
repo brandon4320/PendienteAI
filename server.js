@@ -976,6 +976,18 @@ app.patch('/tasks/:id/snooze', (req, res) => {
   res.sendStatus(200);
 });
 
+app.patch('/tasks/:id/postpone', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'invalid id' });
+  const due = validDate((req.body || {}).dueDate);
+  if (!due) return res.status(400).json({ error: 'invalid date' });
+  // Posponer = fijar fecha y bajar prioridad; el escalado la vuelve a subir al acercarse
+  db.prepare("UPDATE tasks SET due_date=?, priority='semana', urgent=0 WHERE id=?").run(due, id);
+  escalateDueDates();
+  sseBroadcast('task_changed', { type: 'postponed', id });
+  res.sendStatus(200);
+});
+
 app.patch('/tasks/:id/keep', (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'invalid id' });
@@ -1263,4 +1275,4 @@ app.post('/digest/test', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v6.2 - empresas + vencimientos + recurrentes + push WhatsApp en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v6.3 - vista Hoy + posponer a fecha en puerto', process.env.PORT || 3001));
