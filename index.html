@@ -74,6 +74,37 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* EMPRESAS — colores por clave */
+.comp-green{--cc:var(--green);--ccb:var(--green-bg);--ccbd:var(--green-b)}
+.comp-blue{--cc:var(--blue);--ccb:var(--blue-bg);--ccbd:var(--blue-b)}
+.comp-purple{--cc:var(--purple);--ccb:var(--purple-bg);--ccbd:var(--purple-b)}
+.comp-orange{--cc:var(--orange);--ccb:var(--orange-bg);--ccbd:var(--orange-b)}
+.comp-red{--cc:var(--red);--ccb:var(--red-bg);--ccbd:var(--red-b)}
+.comp-amber{--cc:var(--amber);--ccb:var(--amber-bg);--ccbd:var(--amber-b)}
+.comp-slate{--cc:#475569;--ccb:#f1f5f9;--ccbd:#e2e8f0}
+
+/* FILA DE EMPRESAS (scroll horizontal) */
+.comp-pills{display:flex;gap:6px;padding:8px 14px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.comp-pills::-webkit-scrollbar{display:none}
+.cmp{flex-shrink:0;padding:7px 13px;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:18px;background:transparent;white-space:nowrap;min-height:36px;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.cmp .cdot{width:8px;height:8px;border-radius:50%;background:var(--cc,var(--muted2));flex-shrink:0}
+.cmp.active{color:#fff;border-color:transparent;background:var(--cc,var(--text))}
+.cmp.active .cdot{background:rgba(255,255,255,0.9)}
+.cmp .ccount{font-family:var(--mono);font-size:10px;opacity:.8}
+
+/* CHIP DE EMPRESA EN CARDS Y HEADERS */
+.comp-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;background:var(--ccb);color:var(--cc);border:1px solid var(--ccbd)}
+.section-hdr .comp-chip{font-size:10px}
+.cg-av.av-comp{background:var(--ccb);color:var(--cc)}
+
+/* SELECTOR DE EMPRESA EN MODALES */
+.chip-row{display:flex;gap:6px;overflow-x:auto;padding:2px 0;margin-bottom:14px;scrollbar-width:none}
+.chip-row::-webkit-scrollbar{display:none}
+.qchip{flex-shrink:0;padding:7px 11px;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:16px;background:transparent;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;min-height:36px}
+.qchip .cdot{width:7px;height:7px;border-radius:50%;background:var(--cc,var(--muted2))}
+.qchip.active{color:#fff;border-color:transparent;background:var(--cc,var(--text))}
+.qchip.active .cdot{background:rgba(255,255,255,.9)}
+
 /* CONTENT */
 .content{flex:1;overflow-y:auto;padding:10px 14px max(96px,calc(env(safe-area-inset-bottom) + 88px));background:var(--bg)}
 
@@ -261,12 +292,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     </div>
   </div>
 
+  <div class="comp-pills" id="compPills"></div>
+
   <div class="toolbar">
-    <div class="cat-pills">
-      <button type="button" class="cpill active" onclick="setCat('all',this)">Todos</button>
-      <button type="button" class="cpill w" onclick="setCat('trabajo',this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>Trabajo</button>
-      <button type="button" class="cpill p" onclick="setCat('personal',this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Personal</button>
-    </div>
     <div class="search-wrap">
       <input type="search" class="search-input" id="searchInput" placeholder="Buscar..." oninput="renderTasks()" aria-label="Buscar tareas">
     </div>
@@ -302,6 +330,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <input type="text" class="modal-input" id="editText" maxlength="200" />
     <label class="modal-label" for="editPhone">Teléfono WhatsApp <span style="font-weight:400;color:var(--muted2)">(opcional — se guarda para este contacto)</span></label>
     <input type="tel" class="modal-input" id="editPhone" maxlength="20" placeholder="+54 9 2915 044165" />
+    <label class="modal-label">Empresa</label>
+    <div class="chip-row" id="editComp"></div>
     <label class="modal-label">Prioridad</label>
     <div class="modal-prio">
       <button type="button" class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)"><svg width="8" height="8" viewBox="0 0 8 8" style="margin-right:5px"><circle cx="4" cy="4" r="4" fill="var(--p1)"/></svg>Urgente</button>
@@ -324,6 +354,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 <div class="qa-overlay" id="quickAdd" role="dialog" aria-modal="true" aria-label="Agregar tarea" onclick="closeQuickAdd()">
   <div class="qa-box" onclick="event.stopPropagation()">
     <div class="qa-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nueva tarea</div>
+    <div class="chip-row" id="qaComp"></div>
     <textarea class="qa-text" id="qaText" placeholder="Escribí o dictá una tarea… ej: llamar al contador mañana a la mañana" maxlength="300"></textarea>
     <div class="qa-row">
       <button type="button" class="qa-mic" id="qaMic" onclick="toggleMic()" aria-label="Grabar audio">
@@ -406,7 +437,21 @@ function apiFetch(url,opts={}){
 }
 
 let data={pendiente:[],sin_responder:[],mio:[]};
-let expanded=null,catFilter='all',bandeja='pendiente';
+let expanded=null,companyFilter='all',bandeja='pendiente';
+
+// ── EMPRESAS ────────────────────────────────────────────────────────────────
+const COMPANY_ORDER=['financiera','serviwhite','tecnophos','adc','transtide','svn','personal'];
+const COMPANY_META={
+  financiera:{name:'Financiera',color:'green'},
+  serviwhite:{name:'Serviwhite',color:'blue'},
+  tecnophos:{name:'Tecnophos',color:'purple'},
+  adc:{name:'ADC',color:'orange'},
+  transtide:{name:'Transtide',color:'red'},
+  svn:{name:'SVN',color:'amber'},
+  personal:{name:'Personal',color:'slate'},
+};
+function companyMeta(key){return COMPANY_META[key]||{name:'Sin asignar',color:'slate'};}
+function companyClass(key){return 'comp-'+companyMeta(key).color;}
 
 let tt;
 function toast(t){
@@ -466,11 +511,31 @@ function setBandeja(b,btn){
   if(btn)btn.classList.add('active');
   renderTasks();
 }
-function setCat(c,btn){
-  catFilter=c;
-  document.querySelectorAll('.cpill').forEach(x=>x.classList.remove('active'));
+function setCompany(c,btn){
+  companyFilter=c;
+  localStorage.setItem('pai_company',c);
+  document.querySelectorAll('.cmp').forEach(x=>x.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderTasks();
+}
+function buildCompanyPills(){
+  const el=document.getElementById('compPills');
+  if(!el)return;
+  let html='<button type="button" class="cmp'+(companyFilter==='all'?' active':'')+'" onclick="setCompany(\'all\',this)">Todas</button>';
+  for(const key of COMPANY_ORDER){
+    const m=companyMeta(key);
+    html+='<button type="button" class="cmp '+companyClass(key)+(companyFilter===key?' active':'')+'" onclick="setCompany(\''+key+'\',this)"><span class="cdot"></span>'+m.name+'<span class="ccount" id="cc-'+key+'"></span></button>';
+  }
+  el.innerHTML=html;
+}
+function updateCompanyCounts(){
+  const tasks=data[bandeja]||[];
+  const byComp={};
+  tasks.forEach(t=>{const k=t.company||null;byComp[k]=(byComp[k]||0)+1;});
+  for(const key of COMPANY_ORDER){
+    const el=document.getElementById('cc-'+key);
+    if(el)el.textContent=byComp[key]?byComp[key]:'';
+  }
 }
 
 async function loadAll(){
@@ -530,7 +595,14 @@ async function keepTask(id){
   updateBadges();renderTasks();toast('📥 Movido a Pendientes');
 }
 
-let editingId=null,editingPrio='hoy';
+let editingId=null,editingPrio='hoy',editingCompany='';
+function buildEditComp(){
+  const el=document.getElementById('editComp');if(!el)return;
+  let html='<button type="button" class="qchip'+(editingCompany===''?' active':'')+'" onclick="setEditComp(\'\',this)">Sin asignar</button>';
+  for(const key of COMPANY_ORDER){const m=companyMeta(key);html+='<button type="button" class="qchip '+companyClass(key)+(editingCompany===key?' active':'')+'" onclick="setEditComp(\''+key+'\',this)"><span class="cdot"></span>'+m.name+'</button>';}
+  el.innerHTML=html;
+}
+function setEditComp(k,btn){editingCompany=k;document.querySelectorAll('#editComp .qchip').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');}
 function editTask(e,id){
   e.stopPropagation();
   let task=null;
@@ -538,9 +610,11 @@ function editTask(e,id){
   if(!task)return;
   editingId=id;
   editingPrio=task.priority||'hoy';
+  editingCompany=task.company||'';
   document.getElementById('editText').value=task.task||'';
   document.getElementById('editPhone').value=task.phone||'';
   document.querySelectorAll('.mp').forEach(b=>b.classList.toggle('active',b.dataset.p===editingPrio));
+  buildEditComp();
   document.getElementById('editModal').classList.add('show');
   setTimeout(()=>document.getElementById('editText').focus(),100);
 }
@@ -562,10 +636,10 @@ async function saveEdit(){
     const r=await apiFetch(API+'/tasks/'+editingId+'/edit',{
       method:'PATCH',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({task:newTask,priority:editingPrio,phone})
+      body:JSON.stringify({task:newTask,priority:editingPrio,phone,company:editingCompany})
     });
     if(!r.ok)throw new Error('save failed');
-    for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==editingId);if(t){t.task=newTask;t.priority=editingPrio;if(phone)t.phone=phone.replace(/\D/g,'');break;}}
+    for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==editingId);if(t){t.task=newTask;t.priority=editingPrio;t.company=editingCompany||null;if(phone)t.phone=phone.replace(/\D/g,'');break;}}
     closeEdit();renderTasks();toast('Tarea actualizada');
   }catch(e){
     if(e.message!=='401')toast('Error al guardar');
@@ -599,8 +673,7 @@ function prioClass(t,bnd){
 
 function getFiltered(){
   let tasks=data[bandeja]||[];
-  if(catFilter==='trabajo')tasks=tasks.filter(t=>t.category==='trabajo');
-  else if(catFilter==='personal')tasks=tasks.filter(t=>t.category==='personal');
+  if(companyFilter!=='all')tasks=tasks.filter(t=>(t.company||null)===companyFilter);
   const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
   if(q)tasks=tasks.filter(t=>
     (t.contact||'').toLowerCase().includes(q)||
@@ -631,6 +704,7 @@ function clearHandlers(){Object.keys(_h).forEach(k=>delete _h[k]);_hIdx=0;}
 
 function renderTasks(){
   clearHandlers();
+  updateCompanyCounts();
   const el=document.getElementById('content');
   const filtered=getFiltered();
   if(!filtered.length){
@@ -639,10 +713,10 @@ function renderTasks(){
     if(q){
       icon=svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',40);
       title='Sin resultados para "'+escHtml(q)+'"';sub='Intentá con otro término';
-    }else if(catFilter!=='all'){
+    }else if(companyFilter!=='all'){
       icon=svg('<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>',40);
-      title='Sin tareas de '+(catFilter==='trabajo'?'trabajo':'personal');
-      sub='Hay tareas en otras categorías — probá "Todos"';
+      title='Sin tareas de '+companyMeta(companyFilter).name;
+      sub='Probá "Todas" o revisá otra bandeja';
     }else{
       const icons={pendiente:svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',40),sin_responder:svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',40),mio:svg('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',40)};
       const msgs={pendiente:'Bandeja vacía',sin_responder:'Todo respondido',mio:'Sin compromisos'};
@@ -651,32 +725,36 @@ function renderTasks(){
     el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">'+title+'</div><div class="empty-sub">'+sub+'</div></div>';
     return;
   }
-  const trabajo=filtered.filter(t=>t.category==='trabajo');
-  const personal=filtered.filter(t=>t.category!=='trabajo');
-  let html='';
-  if(trabajo.length){
-    html+='<div class="section-hdr">'+IC.brief+' Trabajo · '+trabajo.length+'</div>';
-    groupByContact(trabajo).forEach((g,gi)=>{html+=renderGroup(g,gi);});
-  }
-  if(personal.length){
-    html+='<div class="section-hdr">'+IC.users+' Personal · '+personal.length+'</div>';
-    groupByContact(personal).forEach((g,gi)=>{html+=renderGroup(g,gi+100);});
+  let html='',gi=0;
+  // Empresas presentes, ordenadas por urgencia (la que tiene algo más urgente, primero)
+  const present=[...new Set(filtered.map(t=>t.company||null))];
+  const ordIdx=c=>{const i=COMPANY_ORDER.indexOf(c);return i<0?99:i;};
+  present.sort((a,b)=>{
+    const pa=Math.min(...filtered.filter(t=>(t.company||null)===a).map(prank));
+    const pb=Math.min(...filtered.filter(t=>(t.company||null)===b).map(prank));
+    return pa-pb||ordIdx(a)-ordIdx(b);
+  });
+  for(const comp of present){
+    const list=filtered.filter(t=>(t.company||null)===comp);
+    if(!list.length)continue;
+    const m=companyMeta(comp);
+    if(companyFilter==='all'){
+      html+='<div class="section-hdr '+companyClass(comp)+'"><span class="comp-chip">'+m.name+'</span> · '+list.length+'</div>';
+    }
+    groupByContact(list).forEach(g=>{html+=renderGroup(g,gi++);});
   }
   el.innerHTML=html;
 }
 
 function renderGroup(g,gi){
-  const cat=g.tasks[0]?.category||'personal';
-  const isWork=cat==='trabajo';
-  const isMio=bandeja==='mio';
-  const isSin=bandeja==='sin_responder';
-  const avClass=isMio?'av-mio':isSin?'av-sin':(isWork?'av-w':'av-p');
-  const catIcon=isMio?IC.pencil:isSin?IC.eye:(isWork?IC.brief:IC.users);
+  const comp=g.tasks[0]?.company||null;
+  const m=companyMeta(comp);
+  const cc=companyClass(comp);
   let html='<div class="cgroup">'+
     '<div class="cg-hdr">'+
-    '<div class="cg-av '+avClass+'">'+ini(g.contact)+'</div>'+
+    '<div class="cg-av av-comp '+cc+'">'+ini(g.contact)+'</div>'+
     '<span class="cg-name">'+esc(g.contact)+'</span>'+
-    '<span class="cg-icon"> '+catIcon+'</span>'+
+    (companyFilter==='all'?'':'<span class="comp-chip '+cc+'">'+m.name+'</span>')+
     (g.tasks.length>1?'<span class="cg-cnt">'+g.tasks.length+'</span>':'')+
     '</div>';
   g.tasks.forEach((t,i)=>{html+=renderCard(t,gi*10+i);});
@@ -935,11 +1013,21 @@ _cnt.addEventListener('touchend',e=>{
 },{passive:true});
 
 // ── QUICK-ADD (texto + audio) ──────────────────────────────────────────────────
+let qaCompany='';
+function buildQaCompany(){
+  const el=document.getElementById('qaComp');if(!el)return;
+  let html='<button type="button" class="qchip'+(qaCompany===''?' active':'')+'" onclick="setQaCompany(\'\',this)">Auto</button>';
+  for(const key of COMPANY_ORDER){const m=companyMeta(key);html+='<button type="button" class="qchip '+companyClass(key)+(qaCompany===key?' active':'')+'" onclick="setQaCompany(\''+key+'\',this)"><span class="cdot"></span>'+m.name+'</button>';}
+  el.innerHTML=html;
+}
+function setQaCompany(k,btn){qaCompany=k;document.querySelectorAll('#qaComp .qchip').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');}
 function openQuickAdd(){
   const st=document.getElementById('qaStatus');
   document.getElementById('qaText').value='';
   st.textContent='';st.className='qa-status';
   document.getElementById('qaSend').disabled=false;
+  qaCompany=(companyFilter!=='all')?companyFilter:'';
+  buildQaCompany();
   document.getElementById('quickAdd').classList.add('show');
   setTimeout(()=>document.getElementById('qaText').focus(),120);
 }
@@ -954,7 +1042,7 @@ async function sendQuickText(){
   const st=document.getElementById('qaStatus');
   btn.disabled=true;st.className='qa-status';st.textContent='Anotando…';
   try{
-    const r=await apiFetch(API+'/bot/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
+    const r=await apiFetch(API+'/bot/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,company:qaCompany||undefined})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||'error');
     if(j.query){st.className='qa-status';st.textContent='Eso parece una consulta — escribí una tarea para anotar';btn.disabled=false;return;}
@@ -993,7 +1081,7 @@ async function toggleMic(){
     st.className='qa-status';st.textContent='Transcribiendo…';
     try{
       const b64=await blobToB64(blob);
-      const r=await apiFetch(API+'/bot/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:b64,mime:blob.type})});
+      const r=await apiFetch(API+'/bot/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:b64,mime:blob.type,company:qaCompany||undefined})});
       const j=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(j.error||'error');
       if(j.query){st.className='qa-status';st.textContent='Sonó como una consulta — dictá una tarea para anotar';return;}
@@ -1024,6 +1112,9 @@ function initApp(){
     bandeja=saved;
     document.querySelectorAll('.bt').forEach(b=>b.classList.toggle('active',b.dataset.bandeja===saved));
   }
+  const savedC=localStorage.getItem('pai_company');
+  if(savedC&&(savedC==='all'||COMPANY_ORDER.includes(savedC)))companyFilter=savedC;
+  buildCompanyPills();
   startSSE();loadAll();
 }
 

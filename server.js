@@ -88,8 +88,35 @@ if (!cols.includes('from_me'))     db.exec("ALTER TABLE tasks ADD COLUMN from_me
 if (!cols.includes('actions'))     db.exec("ALTER TABLE tasks ADD COLUMN actions TEXT");
 if (!cols.includes('phone'))       db.exec("ALTER TABLE tasks ADD COLUMN phone TEXT");
 if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
+if (!cols.includes('company'))     db.exec("ALTER TABLE tasks ADD COLUMN company TEXT");
+if (!cols.includes('due_date'))    db.exec("ALTER TABLE tasks ADD COLUMN due_date TEXT");
 db.exec("CREATE TABLE IF NOT EXISTS contact_phones (contact TEXT PRIMARY KEY, phone TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS contact_company (contact TEXT PRIMARY KEY, company TEXT)");
 db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();
+
+// ─── EMPRESAS ───────────────────────────────────────────────────────────────
+// Claves canónicas (lo que se guarda en DB). El front mapea a nombre y color.
+const COMPANIES = ['financiera', 'serviwhite', 'tecnophos', 'adc', 'transtide', 'svn', 'personal'];
+function validCompany(c) {
+  if (!c) return null;
+  const k = String(c).toLowerCase().trim();
+  return COMPANIES.includes(k) ? k : null;
+}
+// Cache contacto→empresa (se aprende cuando Brandon asigna empresa a una tarea)
+const companyCache = {};
+function setCachedCompany(contact, company) {
+  const c = validCompany(company);
+  if (!c || !contact) return;
+  companyCache[contact] = c;
+  db.prepare("INSERT OR REPLACE INTO contact_company (contact, company) VALUES (?,?)").run(contact, c);
+}
+function getCachedCompany(contact) {
+  if (!contact) return null;
+  if (companyCache[contact]) return companyCache[contact];
+  const row = db.prepare("SELECT company FROM contact_company WHERE contact=?").get(contact);
+  if (row?.company) { companyCache[contact] = row.company; return row.company; }
+  return null;
+}
 
 function cleanOldData() {
   db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
@@ -342,6 +369,16 @@ CATEGORÍA:
 - "trabajo": clientes, proveedores, logística, finanzas, aduana, obra — o cualquier tema laboral
 - "personal": amigos, familia, pareja, planes sociales
 
+EMPRESA (Brandon maneja 6 empresas — asigná UNA solo si el tema lo deja claro, sino null):
+- "financiera": préstamos, créditos, cobranzas, finanzas
+- "serviwhite": alquiler y venta de módulos / containers
+- "tecnophos": tecnología, fosfatos/químicos, industria
+- "adc": ADC
+- "transtide": fletes, logística, freight, aduana, transporte de carga
+- "svn": SVN Designs, diseño, branding, web
+- "personal": no es de ninguna empresa (familia, amigos, trámites propios)
+Si no podés deducir la empresa con seguridad, usá null (NO inventes).
+
 MEETING: si hay fecha/hora/lugar concreto, completalo. Usá formato legible ("mañana", "jueves", "10:00").
 
 Respondé SOLO con JSON válido, sin texto extra:
@@ -350,6 +387,7 @@ Respondé SOLO con JSON válido, sin texto extra:
   "type": "pendiente|mio",
   "priority": "ahora|hoy|semana",
   "category": "trabajo|personal",
+  "company": "financiera|serviwhite|tecnophos|adc|transtide|svn|personal|null",
   "keyMessage": "frase clave del mensaje (máx 70 chars)",
   "task": "qué tiene que hacer Brandon (máx 8 palabras)",
   "meeting": { "date": "fecha", "time": "hora", "location": "lugar" },
@@ -417,14 +455,16 @@ function saveTask(contact, msgs, analysis, contactPhone) {
   const lastMsg = msgs[msgs.length - 1]?.text || '';
   const keyMsg = (analysis.keyMessage || lastMsg).slice(0, 150);
   const safeTask = (analysis.task || 'Revisar mensaje').slice(0, 100);
+  // Empresa: el mapeo aprendido del contacto manda; sino la inferencia de la IA
+  const company = getCachedCompany(contact) || validCompany(analysis.company) || null;
 
   if (type === 'mio') {
     const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='mio' LIMIT 1").get(contact);
     if (existing) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
+      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,
         meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-          analysis.urgent ? 1 : 0, analysis.category || 'personal',
+          analysis.urgent ? 1 : 0, analysis.category || 'personal', company,
           meeting?.date || null, meeting?.time || null, meeting?.location || null,
           actionsJson, contactPhone, existing.id);
       console.log('[MIO-UPDATE] ' + contact + ': ' + safeTask);
@@ -448,10 +488,10 @@ function saveTask(contact, msgs, analysis, contactPhone) {
     }
 
     if (matchedExisting) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,
+      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,
         meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-          analysis.urgent ? 1 : 0, analysis.category || 'personal',
+          analysis.urgent ? 1 : 0, analysis.category || 'personal', company,
           meeting?.date || null, meeting?.time || null, meeting?.location || null,
           actionsJson, contactPhone, matchedExisting.id);
       console.log('[PENDIENTE-UPDATE] ' + contact + ': ' + safeTask);
@@ -462,11 +502,11 @@ function saveTask(contact, msgs, analysis, contactPhone) {
 
   // Fix: el INSERT original no incluía actions ni phone — datos se perdían en nuevas tareas
   db.prepare(`INSERT INTO tasks
-    (contact,preview,key_message,task,priority,urgent,category,type,from_me,
+    (contact,preview,key_message,task,priority,urgent,category,company,type,from_me,
      meeting_date,meeting_time,meeting_location,actions,phone)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(contact, lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-      analysis.urgent ? 1 : 0, analysis.category || 'personal', type, type === 'mio' ? 1 : 0,
+      analysis.urgent ? 1 : 0, analysis.category || 'personal', company, type, type === 'mio' ? 1 : 0,
       meeting?.date || null, meeting?.time || null, meeting?.location || null,
       actionsJson, contactPhone);
   console.log('[' + type.toUpperCase() + '-NEW][' + (analysis.priority || 'hoy') + '] ' + contact + ': ' + safeTask);
@@ -489,9 +529,10 @@ function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
         const srActions = [];
         if (phone) srActions.push({ type: 'whatsapp_contact', value: phone.replace(/\D/g, ''), label: 'WhatsApp' });
         srActions.push({ type: 'calendar', title: 'Responder a ' + contact, date: null, time: null, location: null });
-        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,type,phone,actions) VALUES (?,?,?,?,?,?,?,?,?)")
+        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,company,type,phone,actions) VALUES (?,?,?,?,?,?,?,?,?,?)")
           .run(contact, lastMsg.slice(0, 80), (analysis.keyMessage || lastMsg).slice(0, 150),
-            'Responder a ' + contact, 'hoy', analysis.category || 'personal', 'sin_responder', phone, JSON.stringify(srActions));
+            'Responder a ' + contact, 'hoy', analysis.category || 'personal',
+            getCachedCompany(contact) || validCompany(analysis.company) || null, 'sin_responder', phone, JSON.stringify(srActions));
         console.log('[SIN_RESPONDER - 4h] ' + contact);
         sseBroadcast('task_changed', { type: 'new', taskType: 'sin_responder', contact });
       }
@@ -566,7 +607,7 @@ async function sendWAMessage(to, text) {
   } catch(e) { console.error('[BOT] send error:', e.message); }
 }
 
-async function processBotCommand(text, fromId) {
+async function processBotCommand(text, fromId, companyHint) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
   const ROBOT = String.fromCodePoint(0x1F916);
@@ -594,7 +635,7 @@ async function processBotCommand(text, fromId) {
   try {
     const res = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
+      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Brandon maneja 6 empresas: financiera (prestamos/creditos/finanzas), serviwhite (modulos/containers), tecnophos (tecnologia/quimica/industria), adc, transtide (fletes/logistica/freight/aduana), svn (SVN Designs/diseño/web). Si la tarea es de una empresa usa su clave, si es personal usa "personal", si no sabes usa null. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","company":"financiera|serviwhite|tecnophos|adc|transtide|svn|personal|null","contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
       max_tokens: 250,
     });
     const match = res.choices[0].message.content.match(/\{[\s\S]*\}/);
@@ -602,8 +643,8 @@ async function processBotCommand(text, fromId) {
     const a = JSON.parse(match[0]);
     if (!a.task) throw new Error('no task');
     const meet = (a.meeting && (a.meeting.date || a.meeting.time)) ? a.meeting : null;
-    db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(a.contact || 'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority || 'hoy', 0, a.category || 'personal', a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
+    db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,company,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(a.contact || 'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority || 'hoy', 0, a.category || 'personal', validCompany(companyHint) || validCompany(a.company), a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
     sseBroadcast('task_changed', { type: 'new', taskType: a.type });
     console.log('[BOT] Tarea creada: ' + a.task);
     if (fromId) await sendWAMessage(fromId, ROBOT + ' ' + CHECK + ' ' + (a.reply || 'Anotado: ' + a.task));
@@ -735,10 +776,10 @@ app.get('/tasks', (req, res) => {
     id: t.id, contact: t.contact,
     preview: t.key_message || t.preview,
     task: t.task, priority: t.priority,
-    urgent: t.urgent === 1, category: t.category, type: t.type, fromMe: t.from_me === 1,
+    urgent: t.urgent === 1, category: t.category, company: t.company || null, type: t.type, fromMe: t.from_me === 1,
     meeting: t.meeting_date || t.meeting_time ? { date: t.meeting_date, time: t.meeting_time, location: t.meeting_location } : null,
     actions: t.actions ? (() => { try { return JSON.parse(t.actions); } catch(e) { return []; } })() : [],
-    phone: t.phone || null,
+    phone: t.phone || null, dueDate: t.due_date || null,
     hours: t.hours || 0, createdAt: t.created_at,
   }));
   const etag = '"' + require('crypto').createHash('md5').update(JSON.stringify(body)).digest('hex').slice(0, 16) + '"';
@@ -779,23 +820,30 @@ app.patch('/tasks/:id/keep', (req, res) => {
 app.patch('/tasks/:id/edit', (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'invalid id' });
-  const { task, priority, phone } = req.body || {};
+  const body = req.body || {};
+  const { task, priority, phone, company, dueDate } = body;
   if (!task || typeof task !== 'string') return res.status(400).json({ error: 'task required' });
   const trimmed = task.trim().slice(0, 200);
   if (trimmed.length < 2) return res.status(400).json({ error: 'task too short' });
-  const validPrio = ['ahora', 'hoy', 'semana'].includes(priority) ? priority : null;
+
+  const sets = ['task=?'], vals = [trimmed];
+  if (['ahora', 'hoy', 'semana'].includes(priority)) { sets.push('priority=?'); vals.push(priority); }
   const cleanPhone = phone ? phone.replace(/\D/g, '') : null;
-  if (validPrio) {
-    db.prepare("UPDATE tasks SET task=?, priority=?" + (cleanPhone ? ', phone=?' : '') + " WHERE id=?")
-      .run(...(cleanPhone ? [trimmed, validPrio, cleanPhone, id] : [trimmed, validPrio, id]));
-  } else {
-    db.prepare("UPDATE tasks SET task=?" + (cleanPhone ? ', phone=?' : '') + " WHERE id=?")
-      .run(...(cleanPhone ? [trimmed, cleanPhone, id] : [trimmed, id]));
-  }
-  if (cleanPhone) {
-    const t = db.prepare("SELECT contact FROM tasks WHERE id=?").get(id);
-    if (t?.contact) setCachedPhone(t.contact, cleanPhone);
-  }
+  if (cleanPhone) { sets.push('phone=?'); vals.push(cleanPhone); }
+  // company y dueDate: solo se tocan si vienen en el body (permite asignar o limpiar)
+  const hasCompany = Object.prototype.hasOwnProperty.call(body, 'company');
+  const companyVal = hasCompany ? validCompany(company) : null;
+  if (hasCompany) { sets.push('company=?'); vals.push(companyVal); }
+  if (dueDate !== undefined) { sets.push('due_date=?'); vals.push(dueDate ? String(dueDate).slice(0, 10) : null); }
+
+  vals.push(id);
+  db.prepare("UPDATE tasks SET " + sets.join(', ') + " WHERE id=?").run(...vals);
+
+  const t = db.prepare("SELECT contact FROM tasks WHERE id=?").get(id);
+  if (cleanPhone && t?.contact) setCachedPhone(t.contact, cleanPhone);
+  // Aprender empresa del contacto cuando Brandon la asigna manualmente
+  if (hasCompany && companyVal && t?.contact && t.contact !== 'Yo') setCachedCompany(t.contact, companyVal);
+
   sseBroadcast('task_changed', { type: 'edited', id });
   res.sendStatus(200);
 });
@@ -878,7 +926,7 @@ app.post('/bot/command', async (req, res) => {
   const text = (req.body && req.body.text) || '';
   if (!text || text.length < 2) return res.status(400).json({ error: 'texto vacio' });
   try {
-    const r = await processBotCommand(text, null);
+    const r = await processBotCommand(text, null, req.body && req.body.company);
     res.json({ ok: true, task: r?.task || null, query: !!r?.query });
   } catch(e) {
     console.error('[SHORTCUT] Error:', e.message);
@@ -896,7 +944,7 @@ app.post('/bot/audio', async (req, res) => {
     if (!buffer.length) return res.status(400).json({ error: 'audio invalido' });
     const text = await transcribeBuffer(buffer, mime || '');
     if (!text || text.trim().length < 2) return res.status(422).json({ error: 'no se entendio el audio' });
-    const r = await processBotCommand(text, null);
+    const r = await processBotCommand(text, null, req.body && req.body.company);
     res.json({ ok: true, text, task: r?.task || null, query: !!r?.query });
   } catch(e) {
     console.error('[AUDIO-WEB] Error:', e.message);
