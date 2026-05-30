@@ -229,6 +229,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 </div>
 
+<!-- MODAL FEEDBACK -->
+<div class="modal-feedback" id="feedbackModal">
+  <div class="mf-box">
+    <div class="mf-title">🗑️ ¿Por qué descartás esta tarea?</div>
+    <div class="mf-sub" id="feedbackTaskPreview"></div>
+    <div class="mf-btns">
+      <button class="mf-btn-error" onclick="submitFeedback('error')">🤖 La IA se equivocó</button>
+      <button class="mf-btn-done" onclick="submitFeedback('done')">✅ Ya lo resolví</button>
+    </div>
+    <button class="mf-cancel" onclick="closeFeedback()">Cancelar</button>
+  </div>
+</div>
+
 <!-- MODAL EDITAR -->
 <div class="modal-overlay" id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" onclick="closeEdit()">
   <div class="modal" onclick="event.stopPropagation()">
@@ -714,6 +727,43 @@ function toggle(id){
 const _pendingResolve={};
 function _removeLocal(id){for(const k of Object.keys(data))data[k]=data[k].filter(t=>t.id!=id);}
 async function _apiDelete(id){try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}}
+let feedbackId = null;
+
+function openFeedback(id) {
+  event.stopPropagation();
+  feedbackId = id;
+  // Buscar la tarea para mostrar preview
+  let task = null;
+  for (const k of Object.keys(data)) {
+    task = data[k].find(t => t.id == id);
+    if (task) break;
+  }
+  document.getElementById('feedbackTaskPreview').textContent = task ? (task.task || task.preview || '') : '';
+  document.getElementById('feedbackModal').classList.add('show');
+}
+
+function closeFeedback() {
+  document.getElementById('feedbackModal').classList.remove('show');
+  feedbackId = null;
+}
+
+async function submitFeedback(reason) {
+  if (!feedbackId) return;
+  const id = feedbackId;
+  closeFeedback();
+  try {
+    await apiFetch(API+'/tasks/'+id+'/feedback', {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reason })
+    });
+  } catch(e) {}
+  // Remover de local
+  for (const k of Object.keys(data)) data[k] = data[k].filter(t => t.id != id);
+  updateBadges(); renderTasks();
+  toast(reason === 'error' ? '🤖 Anotado — la IA aprende' : '✅ Tarea resuelta');
+}
+
 function resolve(id){
   if(_pendingResolve[id])return;
   document.getElementById('card-'+id)?.classList.add('dismissing');
