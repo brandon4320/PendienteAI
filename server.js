@@ -524,7 +524,19 @@ function getCachedPhone(contact) {
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 
 // ─── BOT: MENSAJES A MÍ MISMO ────────────────────────────────────────────────
-const MY_WA_NUMBER = process.env.MY_WA_NUMBER || '';
+const MY_WA_NUMBER = process.env.MY_WA_NUMBER || '17542365652@c.us';
+// Detectar si un mensaje es del propio Brandon (self-chat o mensaje desde su número)
+function isBrandonSelf(payload) {
+  const from = payload.from || '';
+  const to = payload.to || payload._data?.to || '';
+  // Mensajes que Brandon se manda a sí mismo (self-chat de WhatsApp)
+  if (from === to) return true;
+  // Mensajes desde su número conocido
+  if (from === MY_WA_NUMBER || to === MY_WA_NUMBER) return true;
+  // Chat con sí mismo: from termina en su número
+  if (from.includes('17542365652')) return true;
+  return false;
+}
 
 async function sendWAMessage(to, text) {
   try {
@@ -547,12 +559,12 @@ async function processBotCommand(text, fromId) {
   // Consulta de tareas
   if (/qu[eé]|cu[aá]les|pendiente|tarea|compromiso|lista|mostrame|tengo/i.test(text)) {
     const tasks = db.prepare("SELECT type, task, contact FROM tasks WHERE status='pending' ORDER BY type, created_at ASC LIMIT 10").all();
-    if (!tasks.length) { await sendWAMessage(fromId, 'No tenés nada pendiente'); return; }
+    if (!tasks.length) { await sendWAMessage(fromId, '🤖 No tenés nada pendiente'); return; }
     let msg = 'Tus pendientes:
 ';
     tasks.forEach((t,i) => { msg += (i+1)+'. '+t.task+(t.contact&&t.contact!='Yo'?' ('+t.contact+')':'')+'
 '; });
-    await sendWAMessage(fromId, msg.trim());
+    await sendWAMessage(fromId, '🤖 ' + msg.trim());
     return;
   }
 
@@ -573,10 +585,10 @@ async function processBotCommand(text, fromId) {
       .run(a.contact||'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority||'hoy', 0, a.category||'personal', a.type||'pendiente', 1, meet?.date||null, meet?.time||null);
     sseBroadcast('task_changed', { type:'new', taskType: a.type });
     console.log('[BOT] Tarea creada: ' + a.task);
-    await sendWAMessage(fromId, '✅ ' + (a.reply || 'Anotado: ' + a.task));
+    await sendWAMessage(fromId, '🤖 ✅ ' + (a.reply || 'Anotado: ' + a.task));
   } catch(e) {
     console.error('[BOT] Error:', e.message);
-    await sendWAMessage(fromId, '❌ No entendí, intentá de nuevo');
+    await sendWAMessage(fromId, '🤖 ❌ No entendí, intentá de nuevo');
   }
 }
 
@@ -608,7 +620,7 @@ app.post('/webhook', async (req, res) => {
     const fromMe = payload.fromMe || false;
 
     // ── BOT: Si Brandon se manda mensajes a sí mismo ──────────────────────────
-    if (fromMe && text && text.length >= 3) {
+    if (fromMe && isBrandonSelf(payload) && text && text.length >= 3) {
       console.log('[BOT] Mensaje propio detectado como comando');
       const selfId = payload.from || '';
       enqueue(async () => {
