@@ -619,15 +619,6 @@ app.post('/webhook', async (req, res) => {
     const contact = payload._data?.notifyName || payload.from || '';
     const fromMe = payload.fromMe || false;
 
-    // ── BOT: Si Brandon se manda mensajes a sí mismo ──────────────────────────
-    if (fromMe && isBrandonSelf(payload) && text && text.length >= 3) {
-      console.log('[BOT] Mensaje propio detectado como comando');
-      const selfId = payload.from || '';
-      enqueue(async () => {
-        try { await processBotCommand(text, selfId); } catch(e) { console.error('[BOT]', e.message); }
-      });
-      return;
-    }
     // Extraer número de teléfono del JID de WAHA
     // @lid = Privacy ID de WhatsApp (no es un número real) — ignorar
     const jid = payload.from || '';
@@ -653,6 +644,16 @@ app.post('/webhook', async (req, res) => {
     }
 
     if (!text || text.length < 3) return;
+
+    // ── BOT: Si Brandon se manda mensajes a sí mismo (después de transcripción) ──
+    if (fromMe && isBrandonSelf(payload) && text && text.length >= 3) {
+      console.log('[BOT] Comando recibido: ' + text.slice(0,50));
+      const selfId = payload.from || '';
+      enqueue(async () => {
+        try { await processBotCommand(text, selfId); } catch(e) { console.error('[BOT]', e.message); }
+      });
+      return;
+    }
 
     saveToHistory(contact, text, fromMe);
 
