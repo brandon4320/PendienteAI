@@ -67,6 +67,15 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_conv_contact ON conv_history(contact, created_at);
+  CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER,
+    contact TEXT,
+    task TEXT,
+    preview TEXT,
+    reason TEXT, -- 'error' o 'done'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
   CREATE INDEX IF NOT EXISTS idx_type ON tasks(type);
   CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
@@ -280,11 +289,18 @@ async function analyzeConversation(contact, messages) {
   const lastIsFromOther = messages.length > 0 && !messages[messages.length - 1].fromMe;
 
   const res = await groq.chat.completions.create({
-    model: 'llama-3.1-8b-instant',
+    model: 'llama-3.3-70b-versatile',
     temperature: 0,
     messages: [{
       role: 'user',
-      content: `Sos el asistente personal de Brandon. Analizá esta conversación de WhatsApp y decidí si hay algo pendiente.
+      content: `Sos el asistente personal de Brandon. Tu trabajo es detectar SOLO tareas REALES Y CONCRETAS en conversaciones de WhatsApp. Sos extremadamente estricto — preferís no crear tarea antes que crear una falsa.
+
+❌ NO crear tarea para: saludos, "ok dale", "jaja", "👍", "¿cómo estás?", preguntas vagas, comentarios, chismes, confirmaciones de recibo, conversaciones que no llegaron a un acuerdo.
+
+✅ SÍ crear tarea solo si hay: pedido textual concreto ("mandame X", "cotizame Y", "necesito Z"), evento acordado con fecha/hora ("el lunes a las 8"), compromiso explícito de Brandon ("yo me encargo", "te llamo mañana"), o dato importante pedido (CBU, dirección).
+
+EJEMPLOS de lo que NO es tarea: "¿cómo vas?" / "jaja sí re" / "ok cualquier cosa avisame" / "¿viste lo de ayer?" / "buenas tardes"
+EJEMPLOS de lo que SÍ es tarea: "mandame el presupuesto" / "nos vemos el viernes a las 7" / "necesito el flete para el lunes"
 Hora actual: ${timeStr}
 Contacto: ${contact}
 Último mensaje sin respuesta de Brandon: ${lastIsFromOther ? 'SÍ' : 'NO'}
@@ -689,6 +705,12 @@ app.post('/admin/reset', (req, res) => {
   res.json({ ok: true, deletedTasks: t1.changes, deletedHistory: t2.changes });
 });
 
+app.get('/feedback/stats', (req, res) => {
+  const stats = db.prepare("SELECT reason, COUNT(*) as n FROM feedback GROUP BY reason").all();
+  const recent = db.prepare("SELECT contact, task, reason, created_at FROM feedback ORDER BY id DESC LIMIT 10").all();
+  res.json({ stats, recent });
+});
+
 app.get('/health', (req, res) => {
   const tasks = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
   const hist = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
@@ -727,6 +749,26 @@ app.get('/stream', (req, res) => {
   });
 });
 
+app.patch('/tasks/:id/feedback', (req, res) => {
+  const id = parseInt(req.params.id);
+  const { reason } = req.body || {};
+  if (!id || !['error','done'].includes(reason)) return res.status(400).json({ error: 'invalid' });
+  // Buscar la tarea para guardar contexto
+  const task = db.prepare("SELECT contact, task, preview FROM tasks WHERE id=?").get(id);
+  if (task) {
+    db.prepare("INSERT INTO feedback (task_id, contact, task, preview, reason) VALUES (?,?,?,?,?)")
+      .run(id, task.contact, task.task, task.preview, reason);
+    // Si es error de IA, guardarlo en negativos para el prompt
+    if (reason === 'error') {
+      console.log('[FEEDBACK-ERROR] IA se equivocó: '+task.contact+': '+task.task);
+    }
+  }
+  // Resolver la tarea
+  db.prepare("UPDATE tasks SET status='resolved', resolved_at=CURRENT_TIMESTAMP WHERE id=?").run(id);
+  sseBroadcast('task_changed', { type: 'resolved', id });
+  res.sendStatus(200);
+});
+
 app.delete('/reset', (req, res) => {
   db.prepare("DELETE FROM tasks").run();
   db.prepare("DELETE FROM conv_history").run();
@@ -736,4 +778,4 @@ app.delete('/reset', (req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.7 en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.8 - 7 en puerto', process.env.PORT || 3001));
