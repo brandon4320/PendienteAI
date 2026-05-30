@@ -44,6 +44,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .logo{font-size:20px;font-weight:800;letter-spacing:-0.5px}
 .logo span{color:var(--green)}
 .badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted)}
+.hdr-gear{background:transparent;border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;padding:4px;min-height:32px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;font-size:14px;font-weight:600;color:var(--text)}
+.set-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--green)}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:breathe 2s infinite}
 .dot.off{background:var(--red);animation:none}
 @keyframes breathe{0%,100%{opacity:1}50%{opacity:0.5}}
@@ -298,7 +301,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">Pendiente<span>AI</span></div>
-      <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" class="hdr-gear" id="gearBtn" onclick="openSettings()" title="Avisos" aria-label="Ajustes de avisos" style="display:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+        <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
+      </div>
     </div>
     <div class="btabs">
       <button type="button" class="bt active" data-bandeja="pendiente" onclick="setBandeja('pendiente',this)">
@@ -411,6 +417,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <div class="modal-actions">
       <button type="button" class="btn-cancel" onclick="closeRecur()">Cancelar</button>
       <button type="button" class="btn-save" onclick="saveRecur()">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AJUSTES (avisos WhatsApp) -->
+<div class="modal-overlay" id="settingsModal" role="dialog" aria-modal="true" aria-label="Ajustes de avisos" onclick="closeSettings()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Avisos por WhatsApp</div>
+    <label class="set-row"><span>Resumen diario</span><input type="checkbox" id="setDigest"></label>
+    <label class="modal-label" for="setDigestTime">Hora del resumen diario</label>
+    <input type="time" class="modal-input" id="setDigestTime" value="08:00">
+    <label class="set-row"><span>Resumen semanal (domingos)</span><input type="checkbox" id="setWeekly"></label>
+    <label class="modal-label" for="setWeeklyTime">Hora del resumen semanal</label>
+    <input type="time" class="modal-input" id="setWeeklyTime" value="18:00">
+    <button type="button" class="btn-keep" style="width:100%;margin-bottom:10px" onclick="testDigest()">Enviar resumen de prueba a mi WhatsApp</button>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="closeSettings()">Cerrar</button>
+      <button type="button" class="btn-save" onclick="saveSettings()">Guardar</button>
     </div>
   </div>
 </div>
@@ -824,10 +848,11 @@ async function loadRecurring(){
   renderTasks();
 }
 function cadenceDesc(r){
-  if(r.cadence==='daily')return'Todos los días';
-  if(r.cadence==='weekly')return'Cada '+DOW_SHORT[r.dayOfWeek||0];
-  if(r.cadence==='monthly')return'Día '+r.dayOfMonth+' de cada mes';
-  if(r.cadence==='yearly')return r.dayOfMonth+' '+MON_SHORT[r.month||1]+' (anual)';
+  const n=r.interval||1;
+  if(r.cadence==='daily')return n>1?('Cada '+n+' días'):'Todos los días';
+  if(r.cadence==='weekly')return(n>1?('Cada '+n+' sem · '):'Cada ')+DOW_SHORT[r.dayOfWeek||0];
+  if(r.cadence==='monthly')return(n>1?('Cada '+n+' meses'):'Cada mes')+' (día '+r.dayOfMonth+')';
+  if(r.cadence==='yearly')return(n>1?('Cada '+n+' años'):'Cada año')+' '+r.dayOfMonth+' '+MON_SHORT[r.month||1];
   return r.cadence;
 }
 function renderRecurView(el){
@@ -886,21 +911,26 @@ function setRecurCad(c,btn){recurCadence=c;document.querySelectorAll('#recurCad 
 function pickDow(i,btn){recurDow=i;document.querySelectorAll('#recurDow .qchip').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');}
 function renderRecurDay(){
   const el=document.getElementById('recurDayWrap');
-  if(recurCadence==='daily'){el.innerHTML='';return;}
+  const unit={daily:'días',weekly:'semanas',monthly:'meses',yearly:'años'}[recurCadence]||'';
+  let h='<label class="modal-label">Repetir cada</label>'+
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">'+
+    '<input type="number" min="1" max="99" class="modal-input" id="recurInterval" value="1" style="margin-bottom:0;width:90px" />'+
+    '<span style="color:var(--muted);font-size:14px">'+unit+'</span></div>';
   if(recurCadence==='weekly'){
-    let h='<label class="modal-label">Día de la semana</label><div class="chip-row" id="recurDow">';
+    h+='<label class="modal-label">Día de la semana</label><div class="chip-row" id="recurDow">';
     for(let i=0;i<7;i++)h+='<button type="button" class="qchip'+(i===recurDow?' active':'')+'" onclick="pickDow('+i+',this)">'+DOW_SHORT[i]+'</button>';
-    el.innerHTML=h+'</div>';
+    h+='</div>';
   }else if(recurCadence==='monthly'){
-    el.innerHTML='<label class="modal-label" for="recurDom">Día del mes</label><input type="number" min="1" max="31" class="modal-input" id="recurDom" value="1" />';
+    h+='<label class="modal-label" for="recurDom">Día del mes</label><input type="number" min="1" max="31" class="modal-input" id="recurDom" value="1" />';
   }else if(recurCadence==='yearly'){
-    el.innerHTML='<label class="modal-label" for="recurMonth">Mes (1-12)</label><input type="number" min="1" max="12" class="modal-input" id="recurMonth" value="1" /><label class="modal-label" for="recurDom">Día</label><input type="number" min="1" max="31" class="modal-input" id="recurDom" value="1" />';
+    h+='<label class="modal-label" for="recurMonth">Mes (1-12)</label><input type="number" min="1" max="12" class="modal-input" id="recurMonth" value="1" /><label class="modal-label" for="recurDom">Día</label><input type="number" min="1" max="31" class="modal-input" id="recurDom" value="1" />';
   }
+  el.innerHTML=h;
 }
 async function saveRecur(){
   const title=document.getElementById('recurTitle').value.trim();
   if(title.length<2){toast('Escribí la tarea');return;}
-  const body={title,cadence:recurCadence,company:recurCompany||undefined};
+  const body={title,cadence:recurCadence,company:recurCompany||undefined,interval:parseInt(document.getElementById('recurInterval')?.value,10)||1};
   if(recurCadence==='weekly')body.dayOfWeek=recurDow;
   if(recurCadence==='monthly')body.dayOfMonth=parseInt(document.getElementById('recurDom').value,10)||1;
   if(recurCadence==='yearly'){body.month=parseInt(document.getElementById('recurMonth').value,10)||1;body.dayOfMonth=parseInt(document.getElementById('recurDom').value,10)||1;}
@@ -1156,6 +1186,7 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   if(document.getElementById('editModal').classList.contains('show'))closeEdit();
   else if(document.getElementById('recurModal').classList.contains('show'))closeRecur();
+  else if(document.getElementById('settingsModal').classList.contains('show'))closeSettings();
   else if(document.getElementById('quickAdd').classList.contains('show'))closeQuickAdd();
   else if(document.getElementById('feedbackModal').classList.contains('show'))closeFeedback();
 });
@@ -1322,8 +1353,37 @@ function blobToB64(blob){
   });
 }
 
+// ── AJUSTES / AVISOS ────────────────────────────────────────────────────────
+async function openSettings(){
+  try{
+    const r=await apiFetch(API+'/settings');const s=await r.json();
+    document.getElementById('setDigest').checked=!!s.digestEnabled;
+    document.getElementById('setDigestTime').value=s.digestTime||'08:00';
+    document.getElementById('setWeekly').checked=!!s.weeklyEnabled;
+    document.getElementById('setWeeklyTime').value=s.weeklyTime||'18:00';
+  }catch(e){if(e.message==='401')return;}
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings(){document.getElementById('settingsModal').classList.remove('show');}
+async function saveSettings(){
+  const body={
+    digestEnabled:document.getElementById('setDigest').checked,
+    digestTime:document.getElementById('setDigestTime').value||'08:00',
+    weeklyEnabled:document.getElementById('setWeekly').checked,
+    weeklyTime:document.getElementById('setWeeklyTime').value||'18:00',
+  };
+  try{await apiFetch(API+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});closeSettings();toast('Avisos guardados');}
+  catch(e){if(e.message!=='401')toast('Error al guardar');}
+}
+async function testDigest(){
+  toast('Enviando…');
+  try{const r=await apiFetch(API+'/digest/test',{method:'POST'});if(r.ok)toast('📲 Te lo mandé al WhatsApp');else toast('Error al enviar');}
+  catch(e){if(e.message!=='401')toast('Error al enviar');}
+}
+
 function initApp(){
   const fab=document.getElementById('fab');if(fab)fab.style.display='flex';
+  const gear=document.getElementById('gearBtn');if(gear)gear.style.display='flex';
   const saved=localStorage.getItem('pai_bandeja');
   if(saved&&['pendiente','sin_responder','mio'].includes(saved)){
     bandeja=saved;

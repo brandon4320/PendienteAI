@@ -106,9 +106,15 @@ db.exec(`
     active INTEGER DEFAULT 1,
     next_run TEXT,                -- YYYY-MM-DD próxima fecha a generar
     last_created TEXT,            -- YYYY-MM-DD última generación (idempotencia)
+    interval INTEGER DEFAULT 1,   -- cada N (días/semanas/meses/años)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+const rcols = db.pragma('table_info(recurring)').map(c => c.name);
+if (!rcols.includes('interval')) db.exec("ALTER TABLE recurring ADD COLUMN interval INTEGER DEFAULT 1");
+db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)");
+function getSetting(k, def) { const r = db.prepare("SELECT value FROM settings WHERE key=?").get(k); return r ? r.value : def; }
+function setSetting(k, v) { db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)").run(k, String(v)); }
 db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();
 
 // ─── EMPRESAS ───────────────────────────────────────────────────────────────
@@ -179,7 +185,25 @@ function addDaysISO(iso, n) {
   const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return toISO(d);
 }
 function daysInMonth(y, m0) { return new Date(y, m0 + 1, 0).getDate(); }
-// Próxima fecha (>= fromISO) que cumple la cadencia de la regla
+function addMonthsClamped(iso, n, dom) {
+  const d = new Date(iso + 'T00:00:00');
+  const idx = d.getMonth() + n;
+  const y = d.getFullYear() + Math.floor(idx / 12);
+  const m = ((idx % 12) + 12) % 12;
+  const day = Math.min(Math.max(dom || d.getDate(), 1), daysInMonth(y, m));
+  return toISO(new Date(y, m, day));
+}
+// Avanza desde la ocurrencia previa según la cadencia y el intervalo (cada N)
+function advanceRunISO(rule, prevISO) {
+  const n = Math.max(1, Number(rule.interval) || 1);
+  const dom = Math.min(Math.max(Number(rule.day_of_month) || 1, 1), 31);
+  if (rule.cadence === 'daily') return addDaysISO(prevISO, n);
+  if (rule.cadence === 'weekly') return addDaysISO(prevISO, 7 * n);
+  if (rule.cadence === 'monthly') return addMonthsClamped(prevISO, n, dom);
+  if (rule.cadence === 'yearly') return addMonthsClamped(prevISO, 12 * n, dom);
+  return addDaysISO(prevISO, n);
+}
+// Primera fecha (>= fromISO) que cumple la cadencia de la regla (ignora intervalo)
 function computeNextRunISO(rule, fromISO) {
   let d = new Date(fromISO + 'T00:00:00');
   const cad = rule.cadence;
@@ -221,7 +245,9 @@ function runRecurring() {
           r.priority || 'hoy', r.category || 'trabajo', validCompany(r.company), r.next_run);
       created++;
     }
-    const nr = computeNextRunISO(r, addDaysISO(today, 1));
+    // Avanzar a la próxima ocurrencia (saltando intervalo) hasta que quede en el futuro
+    let nr = r.next_run, guard = 0;
+    do { nr = advanceRunISO(r, nr); guard++; } while (nr <= today && guard < 1000);
     db.prepare("UPDATE recurring SET last_created=?, next_run=? WHERE id=?").run(r.next_run, nr, r.id);
   }
   if (created) {
@@ -756,7 +782,7 @@ async function processBotCommand(text, fromId, companyHint) {
   try {
     const res = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Hoy es ' + todayAR + ' (YYYY-MM-DD). Brandon maneja 6 empresas: financiera (prestamos/creditos/finanzas), serviwhite (modulos/containers), tecnophos (tecnologia/quimica/industria), adc, transtide (fletes/logistica/freight/aduana), svn (SVN Designs/diseño/web). Si la tarea es de una empresa usa su clave, si es personal usa "personal", si no sabes usa null. Si hay una fecha limite/vencimiento, calcula dueDate exacto en YYYY-MM-DD desde la fecha de hoy, sino null. Si el mensaje indica que se REPITE (todos los dias, cada lunes, todos los meses el 20, cada año), completa recurring (dayOfWeek 0=domingo..6=sabado; dayOfMonth 1-31; month 1-12), sino cadence null. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","company":"financiera|serviwhite|tecnophos|adc|transtide|svn|personal|null","dueDate":"YYYY-MM-DD o null","recurring":{"cadence":"daily|weekly|monthly|yearly o null","dayOfWeek":"0-6 o null","dayOfMonth":"1-31 o null","month":"1-12 o null"},"contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
+      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Hoy es ' + todayAR + ' (YYYY-MM-DD). Brandon maneja 6 empresas: financiera (prestamos/creditos/finanzas), serviwhite (modulos/containers), tecnophos (tecnologia/quimica/industria), adc, transtide (fletes/logistica/freight/aduana), svn (SVN Designs/diseño/web). Si la tarea es de una empresa usa su clave, si es personal usa "personal", si no sabes usa null. Si hay una fecha limite/vencimiento, calcula dueDate exacto en YYYY-MM-DD desde la fecha de hoy, sino null. Si el mensaje indica que se REPITE (todos los dias, cada lunes, cada 2 semanas, todos los meses el 20, cada 6 meses, cada año), completa recurring. interval = cada cuantos (ej "cada 6 meses"=monthly interval 6; "cada 2 semanas"=weekly interval 2; default 1). dayOfWeek 0=domingo..6=sabado; dayOfMonth 1-31; month 1-12. Si no se repite, cadence null. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","company":"financiera|serviwhite|tecnophos|adc|transtide|svn|personal|null","dueDate":"YYYY-MM-DD o null","recurring":{"cadence":"daily|weekly|monthly|yearly o null","interval":"N o 1","dayOfWeek":"0-6 o null","dayOfMonth":"1-31 o null","month":"1-12 o null"},"contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
       max_tokens: 250,
     });
     const match = res.choices[0].message.content.match(/\{[\s\S]*\}/);
@@ -768,13 +794,13 @@ async function processBotCommand(text, fromId, companyHint) {
     if (a.recurring && CADENCES.includes(a.recurring.cadence)) {
       const built = buildRuleFromBody({
         title: a.task, company: companyHint || a.company, priority: a.priority, category: a.category,
-        cadence: a.recurring.cadence, dayOfWeek: a.recurring.dayOfWeek, dayOfMonth: a.recurring.dayOfMonth, month: a.recurring.month,
+        cadence: a.recurring.cadence, interval: a.recurring.interval, dayOfWeek: a.recurring.dayOfWeek, dayOfMonth: a.recurring.dayOfMonth, month: a.recurring.month,
       });
       if (built.rule) {
         const rule = built.rule;
         const nextRun = computeNextRunISO(rule, todayISO_AR());
-        db.prepare(`INSERT INTO recurring (title,company,priority,category,cadence,day_of_week,day_of_month,month,next_run)
-          VALUES (?,?,?,?,?,?,?,?,?)`).run(rule.title, rule.company, rule.priority, rule.category, rule.cadence, rule.day_of_week, rule.day_of_month, rule.month, nextRun);
+        db.prepare(`INSERT INTO recurring (title,company,priority,category,cadence,interval,day_of_week,day_of_month,month,next_run)
+          VALUES (?,?,?,?,?,?,?,?,?,?)`).run(rule.title, rule.company, rule.priority, rule.category, rule.cadence, rule.interval, rule.day_of_week, rule.day_of_month, rule.month, nextRun);
         runRecurring();
         sseBroadcast('task_changed', { type: 'recurring_rule' });
         console.log('[BOT] Recurrente creada: ' + rule.title + ' (' + rule.cadence + ')');
@@ -1003,6 +1029,7 @@ function buildRuleFromBody(body) {
       priority: ['ahora', 'hoy', 'semana'].includes(body.priority) ? body.priority : 'hoy',
       category: body.category === 'personal' ? 'personal' : 'trabajo',
       cadence,
+      interval: Math.min(Math.max(parseInt(body.interval, 10) || 1, 1), 99),
       day_of_week: cadence === 'weekly' ? Math.min(Math.max(parseInt(body.dayOfWeek, 10) || 0, 0), 6) : null,
       day_of_month: (cadence === 'monthly' || cadence === 'yearly') ? Math.min(Math.max(parseInt(body.dayOfMonth, 10) || 1, 1), 31) : null,
       month: cadence === 'yearly' ? Math.min(Math.max(parseInt(body.month, 10) || 1, 1), 12) : null,
@@ -1014,7 +1041,7 @@ app.get('/recurring', (req, res) => {
   const rows = db.prepare("SELECT * FROM recurring ORDER BY active DESC, next_run ASC").all();
   res.json(rows.map(r => ({
     id: r.id, title: r.title, company: r.company, priority: r.priority, category: r.category,
-    cadence: r.cadence, dayOfWeek: r.day_of_week, dayOfMonth: r.day_of_month, month: r.month,
+    cadence: r.cadence, interval: r.interval || 1, dayOfWeek: r.day_of_week, dayOfMonth: r.day_of_month, month: r.month,
     active: r.active === 1, nextRun: r.next_run, lastCreated: r.last_created,
   })));
 });
@@ -1023,8 +1050,8 @@ app.post('/recurring', (req, res) => {
   const { rule, error } = buildRuleFromBody(req.body || {});
   if (error) return res.status(400).json({ error });
   const nextRun = computeNextRunISO(rule, todayISO_AR());
-  const info = db.prepare(`INSERT INTO recurring (title,company,priority,category,cadence,day_of_week,day_of_month,month,next_run)
-    VALUES (?,?,?,?,?,?,?,?,?)`).run(rule.title, rule.company, rule.priority, rule.category, rule.cadence, rule.day_of_week, rule.day_of_month, rule.month, nextRun);
+  const info = db.prepare(`INSERT INTO recurring (title,company,priority,category,cadence,interval,day_of_week,day_of_month,month,next_run)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(rule.title, rule.company, rule.priority, rule.category, rule.cadence, rule.interval, rule.day_of_week, rule.day_of_month, rule.month, nextRun);
   runRecurring(); // si toca hoy, genera la primera ya
   sseBroadcast('task_changed', { type: 'recurring_rule' });
   res.json({ ok: true, id: info.lastInsertRowid, nextRun });
@@ -1161,4 +1188,79 @@ app.delete('/reset', (req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v6.1 - empresas + vencimientos + recurrentes en puerto', process.env.PORT || 3001));
+// ─── DIGEST POR WHATSAPP (Fase 4) ────────────────────────────────────────────
+const COMPANY_NAMES = { financiera: 'Financiera', serviwhite: 'Serviwhite', tecnophos: 'Tecnophos', adc: 'ADC', transtide: 'Transtide', svn: 'SVN', personal: 'Personal' };
+function compName(c) { return COMPANY_NAMES[c] || 'Sin empresa'; }
+function ddmm(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
+
+function buildDailyDigest() {
+  const ROBOT = String.fromCodePoint(0x1F916), CAL = String.fromCodePoint(0x1F4C5),
+    WARN = String.fromCodePoint(0x26A0), CLIP = String.fromCodePoint(0x1F4CB), PARTY = String.fromCodePoint(0x1F389);
+  const today = todayISO_AR(), tomorrow = addDaysISO(today, 1);
+  const tasks = db.prepare("SELECT task, company, due_date FROM tasks WHERE status='pending' AND type IN ('pendiente','mio')").all();
+  if (!tasks.length) return ROBOT + ' Buen dia Brandon! No tenes pendientes. ' + PARTY;
+  let msg = ROBOT + ' Buen dia Brandon\n' + CAL + ' ' + today + '\n';
+  const urgent = tasks.filter(t => t.due_date && t.due_date <= tomorrow);
+  if (urgent.length) {
+    msg += '\n' + WARN + ' Para hoy / vencidas:\n';
+    urgent.slice(0, 10).forEach(t => { msg += '- [' + compName(t.company) + '] ' + t.task + (t.due_date < today ? ' (vencida)' : '') + '\n'; });
+  }
+  const counts = {};
+  tasks.forEach(t => { const k = t.company || '_'; counts[k] = (counts[k] || 0) + 1; });
+  msg += '\n' + CLIP + ' Pendientes por empresa:\n';
+  Object.keys(counts).sort((a, b) => counts[b] - counts[a]).forEach(k => { msg += '- ' + compName(k === '_' ? null : k) + ': ' + counts[k] + '\n'; });
+  msg += '\nTotal: ' + tasks.length + ' pendientes';
+  return msg.trim();
+}
+function buildWeeklyDigest() {
+  const ROBOT = String.fromCodePoint(0x1F916), CAL = String.fromCodePoint(0x1F4C5);
+  const today = todayISO_AR(), in7 = addDaysISO(today, 7);
+  const tasks = db.prepare("SELECT task, company, due_date FROM tasks WHERE status='pending' AND type IN ('pendiente','mio') AND due_date IS NOT NULL AND due_date <= ? ORDER BY due_date ASC").all(in7);
+  if (!tasks.length) return ROBOT + ' Semana tranquila: sin vencimientos en los proximos 7 dias.';
+  let msg = ROBOT + ' ' + CAL + ' Tu semana (' + tasks.length + ' vencimientos):\n\n';
+  tasks.forEach(t => { msg += '- ' + ddmm(t.due_date) + ' [' + compName(t.company) + '] ' + t.task + '\n'; });
+  return msg.trim();
+}
+async function sendDailyDigest() { await sendWAMessage(MY_WA_NUMBER, buildDailyDigest()); console.log('[DIGEST] diario enviado'); }
+async function sendWeeklyDigest() { await sendWAMessage(MY_WA_NUMBER, buildWeeklyDigest()); console.log('[DIGEST] semanal enviado'); }
+
+// Scheduler: chequea la hora AR cada minuto
+let _lastDaily = null, _lastWeekly = null;
+setInterval(() => {
+  try {
+    const dateStr = todayISO_AR();
+    const hhmm = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit' });
+    const wd = new Date().toLocaleDateString('en-US', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'short' });
+    if (getSetting('digest_enabled', '1') === '1' && hhmm === getSetting('digest_time', '08:00') && _lastDaily !== dateStr) {
+      _lastDaily = dateStr; sendDailyDigest().catch(e => console.error('[DIGEST]', e.message));
+    }
+    if (getSetting('weekly_enabled', '1') === '1' && wd === 'Sun' && hhmm === getSetting('weekly_time', '18:00') && _lastWeekly !== dateStr) {
+      _lastWeekly = dateStr; sendWeeklyDigest().catch(e => console.error('[DIGEST]', e.message));
+    }
+  } catch (e) { console.error('[DIGEST] sched', e.message); }
+}, 60 * 1000);
+
+app.get('/settings', (req, res) => {
+  res.json({
+    digestEnabled: getSetting('digest_enabled', '1') === '1',
+    digestTime: getSetting('digest_time', '08:00'),
+    weeklyEnabled: getSetting('weekly_enabled', '1') === '1',
+    weeklyTime: getSetting('weekly_time', '18:00'),
+  });
+});
+app.patch('/settings', (req, res) => {
+  const b = req.body || {};
+  if (typeof b.digestEnabled === 'boolean') setSetting('digest_enabled', b.digestEnabled ? '1' : '0');
+  if (typeof b.weeklyEnabled === 'boolean') setSetting('weekly_enabled', b.weeklyEnabled ? '1' : '0');
+  if (/^\d{2}:\d{2}$/.test(b.digestTime || '')) setSetting('digest_time', b.digestTime);
+  if (/^\d{2}:\d{2}$/.test(b.weeklyTime || '')) setSetting('weekly_time', b.weeklyTime);
+  res.json({ ok: true });
+});
+app.post('/digest/test', async (req, res) => {
+  const text = buildDailyDigest();
+  if (req.query.preview === '1' || (req.body && req.body.preview)) return res.json({ ok: true, text, sent: false });
+  try { await sendWAMessage(MY_WA_NUMBER, text); res.json({ ok: true, sent: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v6.2 - empresas + vencimientos + recurrentes + push WhatsApp en puerto', process.env.PORT || 3001));
