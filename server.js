@@ -102,6 +102,14 @@ function validCompany(c) {
   const k = String(c).toLowerCase().trim();
   return COMPANIES.includes(k) ? k : null;
 }
+// Valida fecha ISO YYYY-MM-DD (la que produce la IA para vencimientos)
+function validDate(d) {
+  if (!d) return null;
+  const s = String(d).trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const dt = new Date(s + 'T00:00:00');
+  return isNaN(dt.getTime()) ? null : s;
+}
 // Cache contacto→empresa (se aprende cuando Brandon asigna empresa a una tarea)
 const companyCache = {};
 function setCachedCompany(contact, company) {
@@ -124,15 +132,37 @@ function cleanOldData() {
 }
 cleanOldData();
 
+// Escalado por vencimiento: las tareas con due_date suben de prioridad al acercarse,
+// y quedan urgentes si están vencidas o vencen hoy/mañana.
+function escalateDueDates() {
+  let changes = 0;
+  // Vencidas o que vencen hoy/mañana → urgente
+  changes += db.prepare(`UPDATE tasks SET priority='ahora', urgent=1
+    WHERE status='pending' AND due_date IS NOT NULL
+    AND due_date <= date('now','localtime','+1 day')
+    AND NOT (priority='ahora' AND urgent=1)`).run().changes;
+  // Vencen dentro de 3 días → al menos "hoy"
+  changes += db.prepare(`UPDATE tasks SET priority='hoy'
+    WHERE status='pending' AND due_date IS NOT NULL
+    AND due_date <= date('now','localtime','+3 days')
+    AND priority='semana'`).run().changes;
+  if (changes) {
+    console.log('[ESCALATE] ' + changes + ' tareas escaladas por vencimiento');
+    sseBroadcast('task_changed', { type: 'escalated' });
+  }
+}
+escalateDueDates();
+setInterval(escalateDueDates, 3 * 60 * 60 * 1000); // cada 3 horas
+
 // Programar limpieza diaria a las 3am
 const n3 = new Date(); n3.setHours(3, 0, 0, 0);
 if (n3 <= new Date()) n3.setDate(n3.getDate() + 1);
-setTimeout(() => { cleanOldData(); setInterval(cleanOldData, 86400000); }, Math.max(0, n3 - new Date()));
+setTimeout(() => { cleanOldData(); escalateDueDates(); setInterval(() => { cleanOldData(); escalateDueDates(); }, 86400000); }, Math.max(0, n3 - new Date()));
 
 function consolidateDuplicates() {
   const dups = db.prepare(`
     SELECT contact, COUNT(*) as n FROM tasks
-    WHERE status='pending' AND type='pendiente'
+    WHERE status='pending' AND type='pendiente' AND contact != 'Yo'
     GROUP BY contact HAVING n > 1
   `).all();
   for (const d of dups) {
@@ -325,6 +355,7 @@ async function analyzeWithRetry(contact, history, attempt = 0) {
 async function analyzeConversation(contact, messages) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+  const todayAR = now.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
   const conv = messages.map((m, i) => (i + 1) + '. [' + (m.fromMe ? 'BRANDON' : contact) + ']: ' + m.text).join('\n');
   const lastIsFromOther = messages.length > 0 && !messages[messages.length - 1].fromMe;
 
@@ -342,6 +373,7 @@ async function analyzeConversation(contact, messages) {
 EJEMPLOS de lo que NO es tarea: "¿cómo vas?" / "jaja sí re" / "ok cualquier cosa avisame" / "¿viste lo de ayer?" / "buenas tardes"
 EJEMPLOS de lo que SÍ es tarea: "mandame el presupuesto" / "nos vemos el viernes a las 7" / "necesito el flete para el lunes"
 Hora actual: ${timeStr}
+Fecha de hoy (YYYY-MM-DD): ${todayAR}
 Contacto: ${contact}
 Último mensaje sin respuesta de Brandon: ${lastIsFromOther ? 'SÍ' : 'NO'}
 
@@ -381,6 +413,8 @@ Si no podés deducir la empresa con seguridad, usá null (NO inventes).
 
 MEETING: si hay fecha/hora/lugar concreto, completalo. Usá formato legible ("mañana", "jueves", "10:00").
 
+DUEDATE (fecha límite): si hay un plazo o vencimiento concreto ("antes del viernes", "vence el 30", "para fin de mes", "el lunes"), calculá la fecha exacta en formato YYYY-MM-DD usando la fecha de hoy. Si no hay plazo claro, null.
+
 Respondé SOLO con JSON válido, sin texto extra:
 {
   "needsAction": true,
@@ -391,6 +425,7 @@ Respondé SOLO con JSON válido, sin texto extra:
   "keyMessage": "frase clave del mensaje (máx 70 chars)",
   "task": "qué tiene que hacer Brandon (máx 8 palabras)",
   "meeting": { "date": "fecha", "time": "hora", "location": "lugar" },
+  "dueDate": "YYYY-MM-DD o null",
   "urgent": false
 }`
     }],
@@ -457,14 +492,15 @@ function saveTask(contact, msgs, analysis, contactPhone) {
   const safeTask = (analysis.task || 'Revisar mensaje').slice(0, 100);
   // Empresa: el mapeo aprendido del contacto manda; sino la inferencia de la IA
   const company = getCachedCompany(contact) || validCompany(analysis.company) || null;
+  const dueDate = validDate(analysis.dueDate);
 
   if (type === 'mio') {
     const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='mio' LIMIT 1").get(contact);
     if (existing) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,
+      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,due_date=?,
         meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-          analysis.urgent ? 1 : 0, analysis.category || 'personal', company,
+          analysis.urgent ? 1 : 0, analysis.category || 'personal', company, dueDate,
           meeting?.date || null, meeting?.time || null, meeting?.location || null,
           actionsJson, contactPhone, existing.id);
       console.log('[MIO-UPDATE] ' + contact + ': ' + safeTask);
@@ -488,10 +524,10 @@ function saveTask(contact, msgs, analysis, contactPhone) {
     }
 
     if (matchedExisting) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,
+      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,due_date=?,
         meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-          analysis.urgent ? 1 : 0, analysis.category || 'personal', company,
+          analysis.urgent ? 1 : 0, analysis.category || 'personal', company, dueDate,
           meeting?.date || null, meeting?.time || null, meeting?.location || null,
           actionsJson, contactPhone, matchedExisting.id);
       console.log('[PENDIENTE-UPDATE] ' + contact + ': ' + safeTask);
@@ -502,11 +538,11 @@ function saveTask(contact, msgs, analysis, contactPhone) {
 
   // Fix: el INSERT original no incluía actions ni phone — datos se perdían en nuevas tareas
   db.prepare(`INSERT INTO tasks
-    (contact,preview,key_message,task,priority,urgent,category,company,type,from_me,
+    (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,
      meeting_date,meeting_time,meeting_location,actions,phone)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(contact, lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-      analysis.urgent ? 1 : 0, analysis.category || 'personal', company, type, type === 'mio' ? 1 : 0,
+      analysis.urgent ? 1 : 0, analysis.category || 'personal', company, dueDate, type, type === 'mio' ? 1 : 0,
       meeting?.date || null, meeting?.time || null, meeting?.location || null,
       actionsJson, contactPhone);
   console.log('[' + type.toUpperCase() + '-NEW][' + (analysis.priority || 'hoy') + '] ' + contact + ': ' + safeTask);
@@ -610,6 +646,7 @@ async function sendWAMessage(to, text) {
 async function processBotCommand(text, fromId, companyHint) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
+  const todayAR = now.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
   const ROBOT = String.fromCodePoint(0x1F916);
   const CHECK = String.fromCodePoint(0x2705);
   const CROSS = String.fromCodePoint(0x274C);
@@ -635,7 +672,7 @@ async function processBotCommand(text, fromId, companyHint) {
   try {
     const res = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Brandon maneja 6 empresas: financiera (prestamos/creditos/finanzas), serviwhite (modulos/containers), tecnophos (tecnologia/quimica/industria), adc, transtide (fletes/logistica/freight/aduana), svn (SVN Designs/diseño/web). Si la tarea es de una empresa usa su clave, si es personal usa "personal", si no sabes usa null. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","company":"financiera|serviwhite|tecnophos|adc|transtide|svn|personal|null","contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
+      messages: [{ role: 'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea. Hora: ' + timeStr + '. Hoy es ' + todayAR + ' (YYYY-MM-DD). Brandon maneja 6 empresas: financiera (prestamos/creditos/finanzas), serviwhite (modulos/containers), tecnophos (tecnologia/quimica/industria), adc, transtide (fletes/logistica/freight/aduana), svn (SVN Designs/diseño/web). Si la tarea es de una empresa usa su clave, si es personal usa "personal", si no sabes usa null. Si hay una fecha limite/vencimiento, calcula dueDate exacto en YYYY-MM-DD desde la fecha de hoy, sino null. Mensaje: "' + text + '". Responde SOLO JSON: {"task":"descripcion max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","company":"financiera|serviwhite|tecnophos|adc|transtide|svn|personal|null","dueDate":"YYYY-MM-DD o null","contact":null,"meeting":{"date":null,"time":null},"reply":"confirmacion max 10 palabras"}' }],
       max_tokens: 250,
     });
     const match = res.choices[0].message.content.match(/\{[\s\S]*\}/);
@@ -643,8 +680,8 @@ async function processBotCommand(text, fromId, companyHint) {
     const a = JSON.parse(match[0]);
     if (!a.task) throw new Error('no task');
     const meet = (a.meeting && (a.meeting.date || a.meeting.time)) ? a.meeting : null;
-    db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,company,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(a.contact || 'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority || 'hoy', 0, a.category || 'personal', validCompany(companyHint) || validCompany(a.company), a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
+    db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(a.contact || 'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority || 'hoy', 0, a.category || 'personal', validCompany(companyHint) || validCompany(a.company), validDate(a.dueDate), a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
     sseBroadcast('task_changed', { type: 'new', taskType: a.type });
     console.log('[BOT] Tarea creada: ' + a.task);
     if (fromId) await sendWAMessage(fromId, ROBOT + ' ' + CHECK + ' ' + (a.reply || 'Anotado: ' + a.task));
@@ -961,4 +998,4 @@ app.delete('/reset', (req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v5.9 - quick-add web (texto+audio) en puerto', process.env.PORT || 3001));
+app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v6.0 - empresas + vencimientos en puerto', process.env.PORT || 3001));

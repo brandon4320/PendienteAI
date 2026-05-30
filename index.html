@@ -143,6 +143,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .pill-sin{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
 .pill-mio{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-b)}
 .meet-badge{margin-left:6px;display:inline-flex;align-items:center;padding:2px 7px;border-radius:6px;font-family:var(--mono);font-size:9px;background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
+.due-badge{margin-left:6px;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:600;white-space:nowrap}
+.due-over{background:var(--red-bg);color:var(--red);border:1px solid var(--red-b)}
+.due-now{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-b)}
+.due-soon{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)}
+.due-far{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.btn-due{flex-shrink:0;padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--muted);cursor:pointer;display:flex;align-items:center;min-height:40px}
+.btn-due.active{background:var(--amber);border-color:var(--amber);color:#fff}
 
 /* PRIORIDAD DOT */
 .prio-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -298,6 +305,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <div class="search-wrap">
       <input type="search" class="search-input" id="searchInput" placeholder="Buscar..." oninput="renderTasks()" aria-label="Buscar tareas">
     </div>
+    <button type="button" class="btn-due" id="dueBtn" onclick="toggleDue(this)" title="Vencimientos" aria-label="Ver vencimientos"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
     <button type="button" class="btn-reset" id="resetBtn" onclick="resetAll()" title="Borrar todo" aria-label="Borrar todo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>
      <button type="button" class="btn-refresh" id="scanBtn" onclick="loadAll()" aria-label="Actualizar tareas">
       <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
@@ -332,6 +340,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <input type="tel" class="modal-input" id="editPhone" maxlength="20" placeholder="+54 9 2915 044165" />
     <label class="modal-label">Empresa</label>
     <div class="chip-row" id="editComp"></div>
+    <label class="modal-label" for="editDue">Fecha límite <span style="font-weight:400;color:var(--muted2)">(opcional)</span></label>
+    <input type="date" class="modal-input" id="editDue" />
     <label class="modal-label">Prioridad</label>
     <div class="modal-prio">
       <button type="button" class="mp p1" data-p="ahora" onclick="setEditPrio('ahora',this)"><svg width="8" height="8" viewBox="0 0 8 8" style="margin-right:5px"><circle cx="4" cy="4" r="4" fill="var(--p1)"/></svg>Urgente</button>
@@ -613,6 +623,7 @@ function editTask(e,id){
   editingCompany=task.company||'';
   document.getElementById('editText').value=task.task||'';
   document.getElementById('editPhone').value=task.phone||'';
+  document.getElementById('editDue').value=task.dueDate||'';
   document.querySelectorAll('.mp').forEach(b=>b.classList.toggle('active',b.dataset.p===editingPrio));
   buildEditComp();
   document.getElementById('editModal').classList.add('show');
@@ -636,10 +647,11 @@ async function saveEdit(){
     const r=await apiFetch(API+'/tasks/'+editingId+'/edit',{
       method:'PATCH',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({task:newTask,priority:editingPrio,phone,company:editingCompany})
+      body:JSON.stringify({task:newTask,priority:editingPrio,phone,company:editingCompany,dueDate:document.getElementById('editDue').value||null})
     });
     if(!r.ok)throw new Error('save failed');
-    for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==editingId);if(t){t.task=newTask;t.priority=editingPrio;t.company=editingCompany||null;if(phone)t.phone=phone.replace(/\D/g,'');break;}}
+    const _due=document.getElementById('editDue').value||null;
+    for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==editingId);if(t){t.task=newTask;t.priority=editingPrio;t.company=editingCompany||null;t.dueDate=_due;if(phone)t.phone=phone.replace(/\D/g,'');break;}}
     closeEdit();renderTasks();toast('Tarea actualizada');
   }catch(e){
     if(e.message!=='401')toast('Error al guardar');
@@ -660,6 +672,19 @@ function hrs(h){
   if(h<1){const m=Math.round(h*60);return m<2?'ahora':m+'min';}
   if(h<24)return Math.round(h)+'h';
   return Math.floor(h/24)+'d';
+}
+function fmtDate(iso){const p=iso.split('-');return p[2]+'/'+p[1];}
+function dueInfo(due){
+  if(!due)return null;
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(due+'T00:00:00');
+  if(isNaN(d.getTime()))return null;
+  const diff=Math.round((d-today)/86400000);
+  if(diff<0)return{cls:'due-over',label:'Vencida '+(-diff)+'d',diff};
+  if(diff===0)return{cls:'due-now',label:'Vence hoy',diff};
+  if(diff===1)return{cls:'due-now',label:'Vence mañana',diff};
+  if(diff<=7)return{cls:'due-soon',label:'En '+diff+'d',diff};
+  return{cls:'due-far',label:fmtDate(due),diff};
 }
 
 function prioClass(t,bnd){
@@ -702,10 +727,52 @@ let _hIdx=0;
 function reg(fn){const i=_hIdx++;_h[i]=fn;return i;}
 function clearHandlers(){Object.keys(_h).forEach(k=>delete _h[k]);_hIdx=0;}
 
+let dueMode=false;
+function toggleDue(btn){
+  dueMode=!dueMode;
+  if(btn)btn.classList.toggle('active',dueMode);
+  renderTasks();
+}
+function renderDueItem(t,gi){
+  const comp=t.company||null,m=companyMeta(comp),cc=companyClass(comp);
+  return '<div class="cgroup"><div class="cg-hdr">'+
+    '<div class="cg-av av-comp '+cc+'">'+ini(t.contact)+'</div>'+
+    '<span class="cg-name">'+esc(t.contact)+'</span>'+
+    '<span class="comp-chip '+cc+'">'+m.name+'</span>'+
+    '</div>'+renderCard(t,gi)+'</div>';
+}
+function renderDueView(el){
+  let tasks=[...(data.pendiente||[]),...(data.mio||[])].filter(t=>t.dueDate);
+  if(companyFilter!=='all')tasks=tasks.filter(t=>(t.company||null)===companyFilter);
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
+  if(q)tasks=tasks.filter(t=>(t.contact||'').toLowerCase().includes(q)||(t.task||'').toLowerCase().includes(q)||(t.preview||'').toLowerCase().includes(q));
+  if(!tasks.length){
+    const icon=svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',40);
+    el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">Sin vencimientos</div><div class="empty-sub">Las tareas con fecha límite aparecen acá, ordenadas por urgencia</div></div>';
+    return;
+  }
+  tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:a.dueDate>b.dueDate?1:0);
+  const buckets=[
+    {name:'Vencidas',test:d=>d<0},
+    {name:'Hoy',test:d=>d===0},
+    {name:'Mañana',test:d=>d===1},
+    {name:'Esta semana',test:d=>d>=2&&d<=7},
+    {name:'Más adelante',test:d=>d>7},
+  ];
+  let html='',gi=0;
+  for(const b of buckets){
+    const list=tasks.filter(t=>{const di=dueInfo(t.dueDate);return di&&b.test(di.diff);});
+    if(!list.length)continue;
+    html+='<div class="section-hdr">'+b.name+' · '+list.length+'</div>';
+    list.forEach(t=>{html+=renderDueItem(t,gi++);});
+  }
+  el.innerHTML=html;
+}
 function renderTasks(){
   clearHandlers();
   updateCompanyCounts();
   const el=document.getElementById('content');
+  if(dueMode){renderDueView(el);return;}
   const filtered=getFiltered();
   if(!filtered.length){
     const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
@@ -836,6 +903,9 @@ function renderCard(t){
   if(t.meeting&&(t.meeting.time||t.meeting.date)){
     meetBadge='<span class="meet-badge">'+IC.pin+' '+esc([t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' '))+'</span>';
   }
+  let dueBadge='';
+  const _di=dueInfo(t.dueDate);
+  if(_di)dueBadge='<span class="due-badge '+_di.cls+'"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'+_di.label+'</span>';
   let actions='';
   if(isSin){
     actions=
@@ -861,7 +931,7 @@ function renderCard(t){
     '<div class="prio-dot '+pc.dot+'" aria-hidden="true"></div>'+
     '<div class="tc-body">'+
     '<div class="tc-row"><span class="tc-prev">'+esc(t.preview)+'</span><span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
-    '<div><span class="tc-pill '+pc.pill+'">'+pc.label+'</span>'+meetBadge+'</div>'+
+    '<div><span class="tc-pill '+pc.pill+'">'+pc.label+'</span>'+meetBadge+dueBadge+'</div>'+
     '</div></div>'+
     '<div class="tc-detail '+(isOpen?'open':'')+'" onclick="event.stopPropagation()">'+
     '<div class="dl">'+(isMio?'MI COMPROMISO':isSin?'SIN RESPONDER':'TAREA')+'</div>'+
