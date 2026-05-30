@@ -555,43 +555,52 @@ async function sendWAMessage(to, text) {
 async function processBotCommand(text, fromId) {
   const now = new Date();
   const timeStr = now.toLocaleString('es-AR', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
+  const ROBOT = '\uD83E\uDD16';
+  const CHECK = '\u2705';
+  const CROSS = '\u274C';
 
-  // Consulta de tareas
+  // Consulta de tareas pendientes
   if (/qu[eé]|cu[aá]les|pendiente|tarea|compromiso|lista|mostrame|tengo/i.test(text)) {
     const tasks = db.prepare("SELECT type, task, contact FROM tasks WHERE status='pending' ORDER BY type, created_at ASC LIMIT 10").all();
-    if (!tasks.length) { await sendWAMessage(fromId, '🤖 No tenés nada pendiente'); return; }
-    let msg = 'Tus pendientes:
-';
-    tasks.forEach((t,i) => { msg += (i+1)+'. '+t.task+(t.contact&&t.contact!='Yo'?' ('+t.contact+')':'')+'
-'; });
-    await sendWAMessage(fromId, '🤖 ' + msg.trim());
+    if (!tasks.length) {
+      await sendWAMessage(fromId, ROBOT + ' No tens nada pendiente');
+      return;
+    }
+    let msg = ROBOT + ' Tus pendientes:\n';
+    tasks.forEach(function(t, i) {
+      const c = (t.contact && t.contact !== 'Yo') ? ' (' + t.contact + ')' : '';
+      msg += (i + 1) + '. ' + t.task + c + '\n';
+    });
+    await sendWAMessage(fromId, msg.trim());
     return;
   }
 
   // Crear tarea con IA
-  const res = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [{ role:'user', content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea o evento. Hora: '+timeStr+'. Mensaje: "'+text+'". Interpreta que quiere hacer y crea la tarea. Responde SOLO JSON: {"task":"descripcion clara max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","contact":"nombre si hay sino null","meeting":{"date":"fecha si hay sino null","time":"hora si hay sino null"},"reply":"confirmacion corta max 10 palabras"}' }],
-    max_tokens: 250,
-  });
-
   try {
+    const res = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{
+        role: 'user',
+        content: 'Sos el asistente de Brandon. El te manda este mensaje para anotar una tarea o evento. Hora: ' + timeStr + '. Mensaje: "' + text + '". Interpreta que quiere hacer y crea la tarea. Responde SOLO JSON valido: {"task":"descripcion clara max 10 palabras","type":"pendiente o mio","priority":"ahora hoy o semana","category":"trabajo o personal","contact":"nombre si hay sino null","meeting":{"date":"fecha si hay sino null","time":"hora si hay sino null"},"reply":"confirmacion corta max 10 palabras"}'
+      }],
+      max_tokens: 250,
+    });
     const match = res.choices[0].message.content.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('no json');
     const a = JSON.parse(match[0]);
     if (!a.task) throw new Error('no task');
-    const meet = a.meeting?.date || a.meeting?.time ? a.meeting : null;
+    const meet = (a.meeting && (a.meeting.date || a.meeting.time)) ? a.meeting : null;
     db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(a.contact||'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority||'hoy', 0, a.category||'personal', a.type||'pendiente', 1, meet?.date||null, meet?.time||null);
-    sseBroadcast('task_changed', { type:'new', taskType: a.type });
+      .run(a.contact || 'Yo', text.slice(0, 80), text.slice(0, 150), a.task, a.priority || 'hoy', 0, a.category || 'personal', a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
+    sseBroadcast('task_changed', { type: 'new', taskType: a.type });
     console.log('[BOT] Tarea creada: ' + a.task);
-    await sendWAMessage(fromId, '🤖 ✅ ' + (a.reply || 'Anotado: ' + a.task));
+    const reply = a.reply || 'Anotado: ' + a.task;
+    await sendWAMessage(fromId, ROBOT + ' ' + CHECK + ' ' + reply);
   } catch(e) {
     console.error('[BOT] Error:', e.message);
-    await sendWAMessage(fromId, '🤖 ❌ No entendí, intentá de nuevo');
+    await sendWAMessage(fromId, ROBOT + ' ' + CROSS + ' No entendi, intenta de nuevo');
   }
 }
-
 app.post('/webhook', async (req, res) => {
   // Auth: IPs internas (Docker + localhost) siempre permitidas; externas requieren WAHA_API_KEY
   const ip = req.ip || '';
