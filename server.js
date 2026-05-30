@@ -573,7 +573,10 @@ async function processBotCommand(text, fromId) {
   const CHECK = String.fromCodePoint(0x2705);
   const CROSS = String.fromCodePoint(0x274C);
 
-  if (/qu[e\u00e9]|cu[a\u00e1]les|pendiente|tarea|compromiso|lista|mostrame|tengo/i.test(text)) {
+  // Detecci\u00f3n de CONSULTA (mostrar pendientes). Estricta: solo frases que claramente
+  // piden ver la lista, no tareas que casualmente contengan "tengo"/"tarea"/"pendiente".
+  const isQuery = /^\s*(qu[e\u00e9]\s+(tengo|hay|tareas?|pendientes?|debo|me falta|ten[i\u00ed]a)|cu[a\u00e1]les|mis\s+(tareas?|pendientes?|compromisos?)|mostr(ame|arme|[a\u00e1])|ver\s+(mis|tareas?|pendientes?)|dame\s+(la\s+lista|mis))\b/i.test(text);
+  if (isQuery) {
     const tasks = db.prepare("SELECT type, task, contact FROM tasks WHERE status=\'pending\' ORDER BY type, created_at ASC LIMIT 10").all();
     if (!tasks.length) {
       if (fromId) await sendWAMessage(fromId, ROBOT + ' No tens nada pendiente');

@@ -957,6 +957,7 @@ async function sendQuickText(){
     const r=await apiFetch(API+'/bot/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||'error');
+    if(j.query){st.className='qa-status';st.textContent='Eso parece una consulta — escribí una tarea para anotar';btn.disabled=false;return;}
     closeQuickAdd();
     toast(j.task?('✅ '+j.task):'✅ Anotado');
     loadAll();
@@ -995,6 +996,7 @@ async function toggleMic(){
       const r=await apiFetch(API+'/bot/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:b64,mime:blob.type})});
       const j=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(j.error||'error');
+      if(j.query){st.className='qa-status';st.textContent='Sonó como una consulta — dictá una tarea para anotar';return;}
       closeQuickAdd();
       toast(j.task?('✅ '+j.task):'✅ Anotado');
       loadAll();
