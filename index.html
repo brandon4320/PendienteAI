@@ -584,6 +584,7 @@ function apiFetch(url,opts={}){
 let data={pendiente:[],sin_responder:[],mio:[],inbox:[]};
 let expanded=null,companyFilter='all';
 let view='hoy'; // hoy | todo | agenda | recur | sinresp | inbox
+let inboxLoading=false,inboxError=false;
 const TASK_VIEWS=['hoy','todo','agenda']; // vistas que usan el pool unificado de tareas
 
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
@@ -660,7 +661,13 @@ function setView(v){
   document.getElementById('compPills').style.display=showFilters?'':'none';
   document.querySelector('.toolbar').style.display=(v==='sinresp'||v==='recur'||v==='inbox')?'none':'';
   if(v==='recur'){loadRecurring();return;}
-  if(v==='inbox'){loadInbox();return;}
+  if(v==='inbox'){
+    // Mostrar loading inmediatamente ANTES del fetch — nunca queda contenido de Hoy debajo del ícono Inbox
+    inboxLoading=true; inboxError=false;
+    renderTasks();   // muestra spinner de inbox al instante
+    loadInbox();     // fetch async, re-renderiza cuando termina
+    return;
+  }
   renderTasks();
 }
 function updateTabActive(){
@@ -741,14 +748,22 @@ async function loadBandeja(type){
 
 // ── INBOX DE WHATSAPP ─────────────────────────────────────────────────────────
 async function loadInbox(){
+  // Si el llamador no marcó loading aún (ej: SSE, refresh manual), lo marcamos acá
+  if(!inboxLoading){ inboxLoading=true; inboxError=false; }
+  if(view==='inbox') renderTasks(); // garantiza loading visible aunque llegue de SSE
   try{
     const r=await apiFetch(API+'/whatsapp-inbox');
     data.inbox=_stripResolved(await r.json());
+    inboxError=false;
     setConn(true);
     updateBadges();
-    if(view==='inbox')renderTasks();
   }catch(e){
-    if(e.message!=='401')setConn(false);
+    if(e.message==='401') return;
+    setConn(false);
+    inboxError=true;
+  }finally{
+    inboxLoading=false;
+    if(view==='inbox') renderTasks(); // re-render con datos reales (o error)
   }
 }
 async function confirmInbox(id){
@@ -1331,12 +1346,29 @@ function renderSinResp(el){
 }
 
 function renderInbox(el){
+  // Estado: cargando
+  if(inboxLoading){
+    el.innerHTML='<div class="loading"><div class="spinner"></div><div class="lt">Cargando inbox…</div></div>';
+    return;
+  }
+  // Estado: error de red
+  if(inboxError){
+    const ri=reg(()=>{inboxLoading=true;inboxError=false;renderTasks();loadInbox();});
+    el.innerHTML='<div class="empty"><div class="empty-icon">'+svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',40)+'</div>'+
+      '<div class="empty-title">No se pudo cargar el Inbox</div>'+
+      '<div class="empty-sub">Revisá tu conexión e intentá de nuevo</div>'+
+      '<button type="button" onclick="_h['+ri+']()" style="margin-top:14px;padding:9px 18px;background:var(--green);border:none;color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer">Reintentar</button>'+
+    '</div>';
+    return;
+  }
+  // Estado: vacío
   const list=(data.inbox||[]).slice();
   if(!list.length){
     const icon=svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',40);
     el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">Inbox vacío</div><div class="empty-sub">Los WhatsApps que la IA detecta como posibles pendientes aparecen acá para que decidas si los pasás a tarea</div></div>';
     return;
   }
+  // Estado: con datos
   let html='<div class="sinresp-intro">WhatsApps detectados por la IA · revisalos y decidí si los pasás a tarea</div>',gi=0;
   list.forEach(t=>{html+=renderHoyItem(t,gi++);});
   el.innerHTML=html;
