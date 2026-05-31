@@ -44,7 +44,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .logo{font-size:20px;font-weight:800;letter-spacing:-0.5px}
 .logo span{color:var(--green)}
 .badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted)}
-.hdr-gear{background:transparent;border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;padding:4px;min-height:32px}
+.hdr-gear{background:transparent;border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;padding:6px;min-height:36px;min-width:36px;justify-content:center;border-radius:9px}
+.hdr-icon.on{color:var(--purple);background:var(--purple-bg)}
+.hdr-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;border-radius:8px;background:var(--purple);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
 .set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;font-size:14px;font-weight:600;color:var(--text)}
 .set-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--green)}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:breathe 2s infinite}
@@ -167,6 +169,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .pill-p3{background:var(--p3-bg);color:var(--p3);border:1px solid var(--p3-b)}
 .pill-sin{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
 .pill-mio{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-b)}
+.tc-tag-comp{display:inline-flex;align-items:center;padding:2px 7px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-b)}
+.sinresp-intro{font-size:12px;color:var(--muted2);padding:4px 4px 12px;line-height:1.4}
 .meet-badge{margin-left:6px;display:inline-flex;align-items:center;padding:2px 7px;border-radius:6px;font-family:var(--mono);font-size:9px;background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
 .due-badge{margin-left:6px;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:600;white-space:nowrap}
 .due-over{background:var(--red-bg);color:var(--red);border:1px solid var(--red-b)}
@@ -323,23 +327,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">Pendiente<span>AI</span></div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" class="hdr-gear hdr-icon" id="sinRespBtn" onclick="setView('sinresp')" title="Sin responder" aria-label="Mensajes sin responder" style="display:none;position:relative"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span class="hdr-badge" id="bc-s" style="display:none">0</span></button>
         <button type="button" class="hdr-gear" id="gearBtn" onclick="openSettings()" title="Avisos" aria-label="Ajustes de avisos" style="display:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
         <div class="badge"><div class="dot" id="dot"></div><span id="conn">Conectando...</span></div>
       </div>
     </div>
     <div class="btabs">
-      <button type="button" class="bt bt-hoy active" data-tab="hoy" onclick="setHoy(this)">
+      <button type="button" class="bt active" data-tab="hoy" onclick="setView('hoy')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>Hoy <span class="bcount red" id="bc-hoy" style="display:none">0</span>
       </button>
-      <button type="button" class="bt" data-tab="pendiente" data-bandeja="pendiente" onclick="setBandeja('pendiente',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>Pendientes <span class="bcount red" id="bc-p" style="display:none">0</span>
+      <button type="button" class="bt" data-tab="todo" onclick="setView('todo')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Todo
       </button>
-      <button type="button" class="bt sin" data-tab="sin_responder" data-bandeja="sin_responder" onclick="setBandeja('sin_responder',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Sin resp. <span class="bcount purple" id="bc-s" style="display:none">0</span>
+      <button type="button" class="bt" data-tab="agenda" onclick="setView('agenda')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agenda
       </button>
-      <button type="button" class="bt mio" data-tab="mio" data-bandeja="mio" onclick="setBandeja('mio',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Mis comp. <span class="bcount orange" id="bc-m" style="display:none">0</span>
+      <button type="button" class="bt" data-tab="recur" onclick="setView('recur')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Repetir
       </button>
     </div>
   </div>
@@ -350,8 +355,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <div class="search-wrap">
       <input type="search" class="search-input" id="searchInput" placeholder="Buscar..." oninput="renderTasks()" aria-label="Buscar tareas">
     </div>
-    <button type="button" class="btn-due" id="dueBtn" onclick="toggleDue(this)" title="Vencimientos" aria-label="Ver vencimientos"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
-    <button type="button" class="btn-recur" id="recurBtn" onclick="toggleRecur(this)" title="Recurrentes" aria-label="Ver recurrentes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></button>
     <button type="button" class="btn-reset" id="resetBtn" onclick="resetAll()" title="Borrar todo" aria-label="Borrar todo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>
      <button type="button" class="btn-refresh" id="scanBtn" onclick="loadAll()" aria-label="Actualizar tareas">
       <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
@@ -550,8 +553,9 @@ function apiFetch(url,opts={}){
 }
 
 let data={pendiente:[],sin_responder:[],mio:[]};
-let expanded=null,companyFilter='all',bandeja='pendiente';
-let baseView='hoy'; // 'hoy' | 'normal' — la pestaña principal elegida
+let expanded=null,companyFilter='all';
+let view='hoy'; // hoy | todo | agenda | recur | sinresp
+const TASK_VIEWS=['hoy','todo','agenda']; // vistas que usan el pool unificado de tareas
 
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
 const COMPANY_ORDER=['financiera','serviwhite','tecnophos','adc','transtide','svn','personal'];
@@ -618,23 +622,21 @@ function setConn(ok){
   document.getElementById('conn').textContent=ok?'En vivo':'Sin conexión';
 }
 
-function setHoy(){
-  baseView='hoy';viewMode='hoy';expanded=null;
-  localStorage.setItem('pai_view','hoy');
-  syncViewButtons();updateTabActive();renderTasks();
-}
-function setBandeja(b,btn){
-  bandeja=b;baseView='normal';viewMode='normal';expanded=null;
-  localStorage.setItem('pai_bandeja',b);
-  localStorage.setItem('pai_view','normal');
-  syncViewButtons();updateTabActive();renderTasks();
+function setView(v){
+  view=v;expanded=null;
+  localStorage.setItem('pai_view',v);
+  updateTabActive();
+  // mostrar/ocultar filtros según la vista
+  const showFilters=TASK_VIEWS.includes(v);
+  document.getElementById('compPills').style.display=showFilters?'':'none';
+  document.querySelector('.toolbar').style.display=(v==='sinresp'||v==='recur')?'none':'';
+  if(v==='recur'){loadRecurring();return;}
+  renderTasks();
 }
 function updateTabActive(){
-  document.querySelectorAll('.bt').forEach(x=>{
-    const tab=x.dataset.tab;
-    const on=(viewMode==='hoy')?(tab==='hoy'):(viewMode==='normal'&&tab===bandeja);
-    x.classList.toggle('active',on);
-  });
+  document.querySelectorAll('.bt').forEach(x=>x.classList.toggle('active',x.dataset.tab===view));
+  // el ícono de sin responder se resalta cuando estás en esa pantalla
+  document.getElementById('sinRespBtn')?.classList.toggle('on',view==='sinresp');
 }
 function setCompany(c,btn){
   companyFilter=c;
@@ -654,9 +656,9 @@ function buildCompanyPills(){
 }
 function updateCompanyCounts(){
   let tasks;
-  if(viewMode==='hoy'){tasks=[...(data.pendiente||[]),...(data.mio||[])].filter(t=>hoyBucket(t)!==null);}
-  else if(viewMode==='due'){tasks=[...(data.pendiente||[]),...(data.mio||[])].filter(t=>t.dueDate);}
-  else tasks=data[bandeja]||[];
+  if(view==='hoy'){tasks=taskPool().filter(t=>hoyBucket(t)!==null);}
+  else if(view==='agenda'){tasks=taskPool().filter(t=>t.dueDate);}
+  else tasks=taskPool();
   const byComp={};
   tasks.forEach(t=>{const k=t.company||null;byComp[k]=(byComp[k]||0)+1;});
   for(const key of COMPANY_ORDER){
@@ -697,7 +699,8 @@ async function loadBandeja(type){
     data[type]=await r.json();
     setConn(true);
     updateBadges();
-    if(bandeja===type)renderTasks();
+    const affects=(type==='sin_responder')?(view==='sinresp'):(TASK_VIEWS.includes(view));
+    if(affects)renderTasks();
   }catch(e){
     if(e.message!=='401')setConn(false);
   }finally{
@@ -806,12 +809,9 @@ async function saveEdit(){
 }
 
 function updateBadges(){
-  const defs=[['bc-p',data.pendiente.length],['bc-s',data.sin_responder.length],['bc-m',data.mio.length]];
-  for(const [id,n] of defs){
-    const el=document.getElementById(id);
-    el.textContent=n;
-    el.style.display=n>0?'':'none';
-  }
+  const n=(data.sin_responder||[]).length;
+  const el=document.getElementById('bc-s');
+  if(el){el.textContent=n;el.style.display=n>0?'':'none';}
 }
 
 function ini(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
@@ -834,17 +834,17 @@ function dueInfo(due){
   return{cls:'due-far',label:fmtDate(due),diff};
 }
 
-function prioClass(t,bnd){
-  if(bnd==='sin_responder')return{card:'pr-sin',pill:'pill-sin',dot:'dot-sin',label:'Sin responder'};
-  if(bnd==='mio')return{card:'pr-mio',pill:'pill-mio',dot:'dot-mio',label:'Mi compromiso'};
+function prioClass(t){
+  if(t.type==='sin_responder')return{card:'pr-sin',pill:'pill-sin',dot:'dot-sin',label:'Sin responder'};
   const p=t.priority||'semana';
   if(p==='ahora')return{card:'pr1',pill:'pill-p1',dot:'dot-p1',label:'Urgente'};
   if(p==='hoy')return{card:'pr2',pill:'pill-p2',dot:'dot-p2',label:'Media'};
   return{card:'pr3',pill:'pill-p3',dot:'dot-p3',label:'Baja'};
 }
 
-function getFiltered(){
-  let tasks=data[bandeja]||[];
+// Pool unificado de tareas: pendientes detectadas + mis compromisos
+function taskPool(){return [...(data.pendiente||[]),...(data.mio||[])];}
+function applyFilters(tasks){
   if(companyFilter!=='all')tasks=tasks.filter(t=>(t.company||null)===companyFilter);
   const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
   if(q)tasks=tasks.filter(t=>
@@ -854,6 +854,7 @@ function getFiltered(){
   );
   return tasks;
 }
+function getFiltered(){return applyFilters(taskPool());}
 const PRANK={ahora:0,hoy:1,semana:2};
 function prank(t){const r=PRANK[t.priority];return r===undefined?1:r;}
 function groupByContact(tasks){
@@ -874,20 +875,6 @@ let _hIdx=0;
 function reg(fn){const i=_hIdx++;_h[i]=fn;return i;}
 function clearHandlers(){Object.keys(_h).forEach(k=>delete _h[k]);_hIdx=0;}
 
-let viewMode='hoy'; // hoy | normal | due | recur
-function syncViewButtons(){
-  document.getElementById('dueBtn')?.classList.toggle('active',viewMode==='due');
-  document.getElementById('recurBtn')?.classList.toggle('active',viewMode==='recur');
-}
-function toggleDue(){
-  viewMode=viewMode==='due'?baseView:'due';
-  syncViewButtons();updateTabActive();renderTasks();
-}
-function toggleRecur(){
-  viewMode=viewMode==='recur'?baseView:'recur';
-  syncViewButtons();updateTabActive();
-  if(viewMode==='recur')loadRecurring();else renderTasks();
-}
 function renderDueItem(t,gi){
   const comp=t.company||null,m=companyMeta(comp),cc=companyClass(comp);
   return '<div class="cgroup"><div class="cg-hdr">'+
@@ -1093,9 +1080,11 @@ function renderTasks(){
   updateCompanyCounts();
   updateHoyBadge();
   const el=document.getElementById('content');
-  if(viewMode==='hoy'){renderHoyView(el);return;}
-  if(viewMode==='due'){renderDueView(el);return;}
-  if(viewMode==='recur'){renderRecurView(el);return;}
+  if(view==='hoy'){renderHoyView(el);return;}
+  if(view==='agenda'){renderDueView(el);return;}
+  if(view==='recur'){renderRecurView(el);return;}
+  if(view==='sinresp'){renderSinResp(el);return;}
+  // view==='todo' → pool unificado agrupado por empresa
   const filtered=getFiltered();
   if(!filtered.length){
     const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
@@ -1106,11 +1095,10 @@ function renderTasks(){
     }else if(companyFilter!=='all'){
       icon=svg('<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>',40);
       title='Sin tareas de '+companyMeta(companyFilter).name;
-      sub='Probá "Todas" o revisá otra bandeja';
+      sub='Probá "Todas" o anotá una con el botón +';
     }else{
-      const icons={pendiente:svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',40),sin_responder:svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',40),mio:svg('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',40)};
-      const msgs={pendiente:'Bandeja vacía',sin_responder:'Todo respondido',mio:'Sin compromisos'};
-      icon=icons[bandeja];title=msgs[bandeja];sub='Los mensajes nuevos aparecen automáticamente';
+      icon=svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',40);
+      title='Nada pendiente';sub='Anotá algo con el botón + o esperá que lleguen mensajes';
     }
     el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">'+title+'</div><div class="empty-sub">'+sub+'</div></div>';
     return;
@@ -1149,6 +1137,18 @@ function renderGroup(g,gi){
     '</div>';
   g.tasks.forEach((t,i)=>{html+=renderCard(t,gi*10+i);});
   return html+'</div>';
+}
+
+function renderSinResp(el){
+  const list=(data.sin_responder||[]).slice();
+  if(!list.length){
+    const icon=svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>',40);
+    el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">Todo respondido</div><div class="empty-sub">No hay chats que dejaste sin contestar</div></div>';
+    return;
+  }
+  let html='<div class="sinresp-intro">Chats donde dejaste mensajes sin responder hace +1h</div>',gi=0;
+  groupByContact(list).forEach(g=>{html+=renderGroup(g,gi++);});
+  el.innerHTML=html;
 }
 
 // ── ACCIONES CONTEXTUALES ─────────────────────────────────────────────────────
@@ -1219,9 +1219,9 @@ function renderActionChips(t){
 
 function renderCard(t){
   const isOpen=expanded===t.id;
-  const isSin=bandeja==='sin_responder';
-  const isMio=bandeja==='mio';
-  const pc=prioClass(t,bandeja);
+  const isSin=t.type==='sin_responder';
+  const isMio=t.type==='mio';
+  const pc=prioClass(t);
   let meetBadge='';
   if(t.meeting&&(t.meeting.time||t.meeting.date)){
     meetBadge='<span class="meet-badge">'+IC.pin+' '+esc([t.meeting.date,t.meeting.time,t.meeting.location].filter(Boolean).join(' '))+'</span>';
@@ -1236,30 +1236,25 @@ function renderCard(t){
       '<button type="button" class="btn-keep" onclick="keepTask('+t.id+')" aria-label="Mover a pendientes">'+IC.inbox+' Es pendiente</button>'+
       '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
       '<button type="button" class="btn-x" onclick="deleteTask('+t.id+')" aria-label="Eliminar">'+IC.trash+'</button>';
-  }else if(isMio){
-    actions=
-      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como cumplido">'+IC.check+' Cumplido</button>'+
-      '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
-      '<button type="button" class="btn-zz" onclick="openPostpone(event,'+t.id+')" aria-label="Posponer">'+IC.clock+'</button>'+
-      '<button type="button" class="btn-x" onclick="openFeedback(event,'+t.id+')" aria-label="Descartar">'+IC.trash+'</button>';
   }else{
     actions=
-      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como listo">'+IC.check+' Listo</button>'+
+      '<button type="button" class="btn-ok" onclick="resolve('+t.id+')" aria-label="Marcar como listo">'+IC.check+(isMio?' Cumplido':' Listo')+'</button>'+
       '<button type="button" class="btn-edit" onclick="editTask(event,'+t.id+')" aria-label="Editar">'+IC.edit+'</button>'+
       '<button type="button" class="btn-zz" onclick="openPostpone(event,'+t.id+')" aria-label="Posponer">'+IC.clock+'</button>'+
       '<button type="button" class="btn-x" onclick="openFeedback(event,'+t.id+')" aria-label="Descartar">'+IC.trash+'</button>';
   }
   const headline=esc(t.task||t.preview||'');
+  const compTag=isMio?'<span class="tc-tag-comp">Compromiso</span>':'';
   const hasContext=t.preview&&t.task&&t.preview.trim()!==t.task.trim();
   return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
     '<div class="tc-top">'+
     '<div class="prio-dot '+pc.dot+'" aria-hidden="true"></div>'+
     '<div class="tc-body">'+
     '<div class="tc-task">'+headline+'</div>'+
-    '<div class="tc-meta"><span class="tc-pill '+pc.pill+'">'+pc.label+'</span>'+meetBadge+dueBadge+'<span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
+    '<div class="tc-meta"><span class="tc-pill '+pc.pill+'">'+pc.label+'</span>'+compTag+meetBadge+dueBadge+'<span class="tc-time">'+hrs(t.hours||0)+'</span></div>'+
     '</div></div>'+
     '<div class="tc-detail '+(isOpen?'open':'')+'" onclick="event.stopPropagation()">'+
-    (hasContext?'<div class="dl">'+(isMio?'MI COMPROMISO':isSin?'SIN RESPONDER':'MENSAJE')+'</div><div class="dtask">'+esc(t.preview)+'</div>':'')+
+    (hasContext?'<div class="dl">'+(isSin?'SIN RESPONDER':'MENSAJE')+'</div><div class="dtask">'+esc(t.preview)+'</div>':'')+
     renderActionChips(t)+
     '<div class="dactions">'+actions+'</div>'+
     '</div></div>';
@@ -1361,7 +1356,7 @@ function startSSE(){
     evtSource.addEventListener('task_changed',e=>{
       try{const d=JSON.parse(e.data||'{}');
         if(d.taskType)loadBandeja(d.taskType);else loadAll();
-        if(viewMode==='recur')loadRecurring();
+        if(view==='recur')loadRecurring();
       }catch{loadAll();}
     });
     evtSource.onerror=()=>{
@@ -1447,7 +1442,7 @@ async function sendQuickText(){
     if(j.query){st.className='qa-status';st.textContent='Eso parece una consulta — escribí una tarea para anotar';btn.disabled=false;return;}
     closeQuickAdd();
     toast(j.recurring?('🔁 Recurrente: '+(j.task||'creada')):(j.task?('✅ '+j.task):'✅ Anotado'));
-    if(viewMode==='recur')loadRecurring();else loadAll();
+    if(view==='recur')loadRecurring();else loadAll();
   }catch(e){
     if(e.message!=='401')st.textContent='No se pudo anotar, probá de nuevo';
     btn.disabled=false;
@@ -1486,7 +1481,7 @@ async function toggleMic(){
       if(j.query){st.className='qa-status';st.textContent='Sonó como una consulta — dictá una tarea para anotar';return;}
       closeQuickAdd();
       toast(j.recurring?('🔁 Recurrente: '+(j.task||'creada')):(j.task?('✅ '+j.task):'✅ Anotado'));
-      if(viewMode==='recur')loadRecurring();else loadAll();
+      if(view==='recur')loadRecurring();else loadAll();
     }catch(e){
       if(e.message!=='401')st.textContent='No se entendió el audio, probá de nuevo';
     }
@@ -1535,15 +1530,17 @@ async function testDigest(){
 function initApp(){
   const fab=document.getElementById('fab');if(fab)fab.style.display='flex';
   const gear=document.getElementById('gearBtn');if(gear)gear.style.display='flex';
-  const savedB=localStorage.getItem('pai_bandeja');
-  if(savedB&&['pendiente','sin_responder','mio'].includes(savedB))bandeja=savedB;
+  const sr=document.getElementById('sinRespBtn');if(sr)sr.style.display='flex';
   const savedV=localStorage.getItem('pai_view');
-  if(savedV==='normal'){baseView='normal';viewMode='normal';}
-  else{baseView='hoy';viewMode='hoy';}
-  updateTabActive();
+  if(savedV&&['hoy','todo','agenda','recur','sinresp'].includes(savedV))view=savedV;
+  else view='hoy';
   const savedC=localStorage.getItem('pai_company');
   if(savedC&&(savedC==='all'||COMPANY_ORDER.includes(savedC)))companyFilter=savedC;
   buildCompanyPills();
+  updateTabActive();
+  const showFilters=TASK_VIEWS.includes(view);
+  document.getElementById('compPills').style.display=showFilters?'':'none';
+  document.querySelector('.toolbar').style.display=(view==='sinresp'||view==='recur')?'none':'';
   startSSE();loadAll();
 }
 
