@@ -1,7 +1,36 @@
-require('dotenv').config();
+// ─── MÓDULOS REFACTORIZADOS (backend/src) ───────────────────────────────────
+// Config, conexión a DB, migraciones y helpers compartidos. El comportamiento
+// es idéntico al anterior: solo se movieron a archivos separados.
+const env = require('./backend/src/config/env'); // carga dotenv (raíz) + centraliza process.env
+const C = require('./backend/src/config/constants');
+const log = require('./backend/src/shared/logger');
+const db = require('./backend/src/db/connection');
+const { runMigrations } = require('./backend/src/db/migrations');
+const {
+  todayISO_AR, toISO, addDaysISO, daysInMonth, addMonthsClamped,
+  advanceRunISO, computeNextRunISO,
+} = require('./backend/src/shared/date');
+const { validCompany, validDate, audioExtFromMime, parseId } = require('./backend/src/shared/validation');
+
+// Módulo de tareas (repository/service/controller/routes). El service recibe
+// por inyección las dependencias que viven en server.js (SSE + caches de
+// contacto + extractActions), que son declaraciones de función hoisteadas.
+const taskRepo = require('./backend/src/modules/tasks/task.repository');
+const { createTaskService } = require('./backend/src/modules/tasks/task.service');
+const { createTaskController } = require('./backend/src/modules/tasks/task.controller');
+const { createTaskRoutes } = require('./backend/src/modules/tasks/task.routes');
+const taskService = createTaskService({
+  sseBroadcast: (...a) => sseBroadcast(...a),
+  getCachedCompany: (...a) => getCachedCompany(...a),
+  setCachedCompany: (...a) => setCachedCompany(...a),
+  setCachedPhone: (...a) => setCachedPhone(...a),
+  extractActions: (...a) => extractActions(...a),
+});
+const taskController = createTaskController({ taskService });
+const taskRouter = createTaskRoutes({ taskController });
+
 const express = require('express');
 const Groq = require('groq-sdk');
-const Database = require('better-sqlite3');
 const path = require('path');
 const fsAsync = require('fs').promises;
 const fsSync = require('fs');
@@ -10,9 +39,9 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
-const API_TOKEN = process.env.API_TOKEN;
+const API_TOKEN = env.API_TOKEN;
 if (!API_TOKEN) {
-  console.error('[STARTUP] ADVERTENCIA: API_TOKEN no está en .env — todas las peticiones autenticadas serán rechazadas');
+  log.error('[STARTUP] ADVERTENCIA: API_TOKEN no está en .env — todas las peticiones autenticadas serán rechazadas');
 }
 
 function authMiddleware(req, res, next) {
@@ -23,7 +52,7 @@ function authMiddleware(req, res, next) {
 }
 
 app.use((req, res, next) => {
-  const allowedOrigins = ['https://pendienteia.vercel.app', 'http://localhost:3000'];
+  const allowedOrigins = C.ALLOWED_ORIGINS;
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -39,100 +68,15 @@ app.use((req, res, next) => {
 app.use(authMiddleware);
 
 // ─── SQLITE ───────────────────────────────────────────────────────────────────
-const db = new Database(path.join(__dirname, 'tasks.db'));
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    contact TEXT NOT NULL,
-    preview TEXT,
-    key_message TEXT,
-    task TEXT,
-    priority TEXT DEFAULT 'hoy',
-    urgent INTEGER DEFAULT 0,
-    category TEXT DEFAULT 'personal',
-    type TEXT DEFAULT 'pendiente',
-    from_me INTEGER DEFAULT 0,
-    meeting_date TEXT,
-    meeting_time TEXT,
-    meeting_location TEXT,
-    status TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    resolved_at DATETIME
-  );
-  CREATE TABLE IF NOT EXISTS conv_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    contact TEXT NOT NULL,
-    text TEXT NOT NULL,
-    from_me INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE INDEX IF NOT EXISTS idx_conv_contact ON conv_history(contact, created_at);
-  CREATE TABLE IF NOT EXISTS feedback (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    contact TEXT,
-    task TEXT,
-    preview TEXT,
-    reason TEXT, -- 'error' o 'done'
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
-  CREATE INDEX IF NOT EXISTS idx_type ON tasks(type);
-  CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
-`);
-
-// Migraciones seguras
-const cols = db.pragma('table_info(tasks)').map(c => c.name);
-if (!cols.includes('type'))        db.exec("ALTER TABLE tasks ADD COLUMN type TEXT DEFAULT 'pendiente'");
-if (!cols.includes('from_me'))     db.exec("ALTER TABLE tasks ADD COLUMN from_me INTEGER DEFAULT 0");
-if (!cols.includes('actions'))     db.exec("ALTER TABLE tasks ADD COLUMN actions TEXT");
-if (!cols.includes('phone'))       db.exec("ALTER TABLE tasks ADD COLUMN phone TEXT");
-if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
-if (!cols.includes('company'))     db.exec("ALTER TABLE tasks ADD COLUMN company TEXT");
-if (!cols.includes('due_date'))    db.exec("ALTER TABLE tasks ADD COLUMN due_date TEXT");
-db.exec("CREATE TABLE IF NOT EXISTS contact_phones (contact TEXT PRIMARY KEY, phone TEXT)");
-db.exec("CREATE TABLE IF NOT EXISTS contact_company (contact TEXT PRIMARY KEY, company TEXT)");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS recurring (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    company TEXT,
-    priority TEXT DEFAULT 'hoy',
-    category TEXT DEFAULT 'trabajo',
-    cadence TEXT NOT NULL,        -- daily | weekly | monthly | yearly
-    day_of_week INTEGER,          -- 0-6 (domingo=0) para weekly
-    day_of_month INTEGER,         -- 1-31 para monthly/yearly
-    month INTEGER,                -- 1-12 para yearly
-    active INTEGER DEFAULT 1,
-    next_run TEXT,                -- YYYY-MM-DD próxima fecha a generar
-    last_created TEXT,            -- YYYY-MM-DD última generación (idempotencia)
-    interval INTEGER DEFAULT 1,   -- cada N (días/semanas/meses/años)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-const rcols = db.pragma('table_info(recurring)').map(c => c.name);
-if (!rcols.includes('interval')) db.exec("ALTER TABLE recurring ADD COLUMN interval INTEGER DEFAULT 1");
-db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)");
+// La conexión vive en backend/src/db/connection.js y las tablas/migraciones en
+// backend/src/db/migrations.js. Comportamiento idéntico al anterior.
+runMigrations(db);
 function getSetting(k, def) { const r = db.prepare("SELECT value FROM settings WHERE key=?").get(k); return r ? r.value : def; }
 function setSetting(k, v) { db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)").run(k, String(v)); }
-db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();
 
 // ─── EMPRESAS ───────────────────────────────────────────────────────────────
-// Claves canónicas (lo que se guarda en DB). El front mapea a nombre y color.
-const COMPANIES = ['financiera', 'serviwhite', 'tecnophos', 'adc', 'transtide', 'svn', 'personal'];
-function validCompany(c) {
-  if (!c) return null;
-  const k = String(c).toLowerCase().trim();
-  return COMPANIES.includes(k) ? k : null;
-}
-// Valida fecha ISO YYYY-MM-DD (la que produce la IA para vencimientos)
-function validDate(d) {
-  if (!d) return null;
-  const s = String(d).trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const dt = new Date(s + 'T00:00:00');
-  return isNaN(dt.getTime()) ? null : s;
-}
+// Claves canónicas (lo que se guarda en DB) en C.COMPANIES; validCompany/validDate
+// viven en backend/src/shared/validation.js.
 // Cache contacto→empresa (se aprende cuando Brandon asigna empresa a una tarea)
 const companyCache = {};
 function setCachedCompany(contact, company) {
@@ -150,88 +94,19 @@ function getCachedCompany(contact) {
 }
 
 function cleanOldData() {
-  db.prepare("DELETE FROM tasks WHERE status='resolved' AND resolved_at < datetime('now','-30 days')").run();
+  taskRepo.deleteOldResolved();
   db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-1 day')").run();
 }
 cleanOldData();
 
-// Escalado por vencimiento: las tareas con due_date suben de prioridad al acercarse,
-// y quedan urgentes si están vencidas o vencen hoy/mañana.
-function escalateDueDates() {
-  let changes = 0;
-  // Vencidas o que vencen hoy/mañana → urgente
-  changes += db.prepare(`UPDATE tasks SET priority='ahora', urgent=1
-    WHERE status='pending' AND due_date IS NOT NULL
-    AND due_date <= date('now','localtime','+1 day')
-    AND NOT (priority='ahora' AND urgent=1)`).run().changes;
-  // Vencen dentro de 3 días → al menos "hoy"
-  changes += db.prepare(`UPDATE tasks SET priority='hoy'
-    WHERE status='pending' AND due_date IS NOT NULL
-    AND due_date <= date('now','localtime','+3 days')
-    AND priority='semana'`).run().changes;
-  if (changes) {
-    console.log('[ESCALATE] ' + changes + ' tareas escaladas por vencimiento');
-    sseBroadcast('task_changed', { type: 'escalated' });
-  }
-}
+// Escalado por vencimiento (taskService.escalateDueDates): las tareas con
+// due_date suben de prioridad al acercarse. Alias local para no tocar los
+// muchos call sites de los schedulers.
+const escalateDueDates = () => taskService.escalateDueDates();
 // ─── RECURRENTES ────────────────────────────────────────────────────────────
-function todayISO_AR() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
-}
-function toISO(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-function addDaysISO(iso, n) {
-  const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return toISO(d);
-}
-function daysInMonth(y, m0) { return new Date(y, m0 + 1, 0).getDate(); }
-function addMonthsClamped(iso, n, dom) {
-  const d = new Date(iso + 'T00:00:00');
-  const idx = d.getMonth() + n;
-  const y = d.getFullYear() + Math.floor(idx / 12);
-  const m = ((idx % 12) + 12) % 12;
-  const day = Math.min(Math.max(dom || d.getDate(), 1), daysInMonth(y, m));
-  return toISO(new Date(y, m, day));
-}
-// Avanza desde la ocurrencia previa según la cadencia y el intervalo (cada N)
-function advanceRunISO(rule, prevISO) {
-  const n = Math.max(1, Number(rule.interval) || 1);
-  const dom = Math.min(Math.max(Number(rule.day_of_month) || 1, 1), 31);
-  if (rule.cadence === 'daily') return addDaysISO(prevISO, n);
-  if (rule.cadence === 'weekly') return addDaysISO(prevISO, 7 * n);
-  if (rule.cadence === 'monthly') return addMonthsClamped(prevISO, n, dom);
-  if (rule.cadence === 'yearly') return addMonthsClamped(prevISO, 12 * n, dom);
-  return addDaysISO(prevISO, n);
-}
-// Primera fecha (>= fromISO) que cumple la cadencia de la regla (ignora intervalo)
-function computeNextRunISO(rule, fromISO) {
-  let d = new Date(fromISO + 'T00:00:00');
-  const cad = rule.cadence;
-  if (cad === 'daily') return toISO(d);
-  if (cad === 'weekly') {
-    const target = ((Number(rule.day_of_week) % 7) + 7) % 7;
-    for (let i = 0; i < 7; i++) { if (d.getDay() === target) return toISO(d); d.setDate(d.getDate() + 1); }
-    return toISO(d);
-  }
-  if (cad === 'monthly') {
-    const dom = Math.min(Math.max(Number(rule.day_of_month) || 1, 1), 31);
-    for (let i = 0; i < 400; i++) {
-      if (d.getDate() === Math.min(dom, daysInMonth(d.getFullYear(), d.getMonth()))) return toISO(d);
-      d.setDate(d.getDate() + 1);
-    }
-    return toISO(d);
-  }
-  if (cad === 'yearly') {
-    const mo = Math.min(Math.max(Number(rule.month) || 1, 1), 12) - 1;
-    const dom = Math.min(Math.max(Number(rule.day_of_month) || 1, 1), 31);
-    for (let i = 0; i < 800; i++) {
-      if (d.getMonth() === mo && d.getDate() === Math.min(dom, daysInMonth(d.getFullYear(), d.getMonth()))) return toISO(d);
-      d.setDate(d.getDate() + 1);
-    }
-    return toISO(d);
-  }
-  return toISO(d);
-}
+// Los helpers de fecha (todayISO_AR, toISO, addDaysISO, daysInMonth,
+// addMonthsClamped, advanceRunISO, computeNextRunISO) viven en
+// backend/src/shared/date.js y se importan arriba.
 // Genera las tareas de las reglas que vencen hoy o antes, y avanza next_run
 function runRecurring() {
   const today = todayISO_AR();
@@ -239,10 +114,15 @@ function runRecurring() {
   let created = 0;
   for (const r of due) {
     if (r.last_created !== r.next_run) {
-      db.prepare(`INSERT INTO tasks (contact,preview,key_message,task,priority,category,company,due_date,type,from_me)
-        VALUES ('Yo',?,?,?,?,?,?,?,'pendiente',1)`)
-        .run(r.title.slice(0, 80), r.title.slice(0, 150), r.title.slice(0, 100),
-          r.priority || 'hoy', r.category || 'trabajo', validCompany(r.company), r.next_run);
+      taskRepo.insertRecurringTask({
+        preview: r.title.slice(0, 80),
+        keyMessage: r.title.slice(0, 150),
+        task: r.title.slice(0, 100),
+        priority: r.priority || 'hoy',
+        category: r.category || 'trabajo',
+        company: validCompany(r.company),
+        dueDate: r.next_run,
+      });
       created++;
     }
     // Avanzar a la próxima ocurrencia (saltando intervalo) hasta que quede en el futuro
@@ -269,27 +149,8 @@ setTimeout(() => {
   setInterval(() => { cleanOldData(); escalateDueDates(); runRecurring(); }, 86400000);
 }, Math.max(0, n3 - new Date()));
 
-function consolidateDuplicates() {
-  const dups = db.prepare(`
-    SELECT contact, COUNT(*) as n FROM tasks
-    WHERE status='pending' AND type='pendiente' AND contact != 'Yo'
-    GROUP BY contact HAVING n > 1
-  `).all();
-  for (const d of dups) {
-    const keep = db.prepare(`
-      SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='pendiente'
-      ORDER BY created_at DESC LIMIT 1
-    `).get(d.contact);
-    if (keep) {
-      const r = db.prepare(`
-        UPDATE tasks SET status='resolved', resolved_at=CURRENT_TIMESTAMP
-        WHERE contact=? AND status='pending' AND type='pendiente' AND id != ?
-      `).run(d.contact, keep.id);
-      if (r.changes) console.log('[CONSOLIDATE] ' + d.contact + ': ' + r.changes + ' duplicados resueltos');
-    }
-  }
-}
-consolidateDuplicates();
+// consolidateDuplicates vive en taskService (módulo tasks).
+taskService.consolidateDuplicates();
 
 // ─── EXTRACCIÓN DE ACCIONES ────────────────────────────────────────────────────
 function extractActions(messages) {
@@ -352,18 +213,10 @@ function extractActions(messages) {
 }
 
 // ─── GROQ ─────────────────────────────────────────────────────────────────────
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 
 // ─── AUDIO (Whisper) ──────────────────────────────────────────────────────────
-// Mapea el mimetype del audio a una extensión que Groq/Whisper reconozca.
-function audioExtFromMime(mimetype) {
-  const m = (mimetype || '').toLowerCase();
-  if (m.includes('webm')) return '.webm';
-  if (m.includes('mp4') || m.includes('m4a') || m.includes('aac')) return '.m4a';
-  if (m.includes('mpeg') || m.includes('mp3')) return '.mp3';
-  if (m.includes('wav')) return '.wav';
-  return '.ogg';
-}
+// audioExtFromMime vive en backend/src/shared/validation.js (importado arriba).
 
 // Transcribe un buffer de audio ya descargado. Devuelve el texto o null.
 async function transcribeBuffer(audioBuffer, mimetype) {
@@ -375,7 +228,7 @@ async function transcribeBuffer(audioBuffer, mimetype) {
   try {
     const transcription = await groq.audio.transcriptions.create({
       file: fsSync.createReadStream(tmpPath),
-      model: 'whisper-large-v3-turbo',
+      model: C.GROQ_AUDIO_MODEL,
       language: 'es',
       response_format: 'json',
     });
@@ -389,7 +242,7 @@ async function transcribeBuffer(audioBuffer, mimetype) {
 
 async function transcribeAudio(mediaUrl, mimetype) {
   try {
-    const WAHA_API_KEY = process.env.WAHA_API_KEY;
+    const WAHA_API_KEY = env.WAHA_API_KEY;
     if (!WAHA_API_KEY) { console.error('[AUDIO] WAHA_API_KEY no configurado'); return null; }
 
     const audioRes = await fetch(mediaUrl, { headers: { 'X-Api-Key': WAHA_API_KEY } });
@@ -411,7 +264,7 @@ async function processQueue() {
   processing = true;
   const job = queue.shift();
   try { await job(); } catch(e) { console.error('Queue error:', e.message); }
-  setTimeout(processQueue, 2000);
+  setTimeout(processQueue, C.QUEUE_DELAY_MS);
 }
 
 // ─── HISTORIAL ────────────────────────────────────────────────────────────────
@@ -427,7 +280,7 @@ function getRecentHistory(contact) {
 }
 
 // ─── SSE ──────────────────────────────────────────────────────────────────────
-const SSE_MAX_CLIENTS = 20;
+const SSE_MAX_CLIENTS = C.SSE_MAX_CLIENTS;
 let sseClients = [];
 
 function sseBroadcast(eventType, data) {
@@ -444,7 +297,7 @@ setInterval(() => {
     try { client.write(': heartbeat\n\n'); return true; }
     catch(e) { return false; }
   });
-}, 30000);
+}, C.SSE_HEARTBEAT_MS);
 
 // ─── ANÁLISIS ─────────────────────────────────────────────────────────────────
 async function analyzeWithRetry(contact, history, attempt = 0) {
@@ -470,7 +323,7 @@ async function analyzeConversation(contact, messages) {
   const lastIsFromOther = messages.length > 0 && !messages[messages.length - 1].fromMe;
 
   const res = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: C.GROQ_TEXT_MODEL,
     temperature: 0,
     messages: [{
       role: 'user',
@@ -554,110 +407,9 @@ Respondé SOLO con JSON válido, sin texto extra:
   }
 }
 
-function saveTask(contact, msgs, analysis, contactPhone) {
-  if (!analysis.needsAction || analysis.priority === 'ignorar') return;
-
-  const extractedActions = extractActions(msgs);
-  const meeting = (analysis.meeting?.date || analysis.meeting?.time) ? analysis.meeting : null;
-
-  // Chip de calendario: siempre presente; si la IA detectó reunión se pre-rellena fecha/hora
-  if (!extractedActions.some(a => a.type === 'calendar')) {
-    extractedActions.push({
-      type: 'calendar',
-      title: (analysis.task || '').slice(0, 60),
-      date: meeting ? (meeting.date || null) : null,
-      time: meeting ? (meeting.time || null) : null,
-      location: meeting ? (meeting.location || null) : null,
-    });
-  }
-
-  // WhatsApp: siempre usar el número del contacto de WAHA (payload.from), no el del texto
-  for (let i = extractedActions.length - 1; i >= 0; i--) {
-    if (extractedActions[i].type === 'whatsapp') extractedActions.splice(i, 1);
-  }
-  if (contactPhone && !extractedActions.some(a => a.type === 'whatsapp_contact')) {
-    extractedActions.unshift({ type: 'whatsapp_contact', value: contactPhone.replace(/\D/g, ''), label: 'WhatsApp' });
-  }
-
-  const actionsJson = extractedActions.length ? JSON.stringify(extractedActions) : null;
-
-  // Filtro de alucinación: solo aplica si NO hay meeting detectado (las reuniones ya son validadas por la IA)
-  // Incluye el nombre del contacto en el espacio de búsqueda, y requiere 2+ palabras ausentes para bloquear
-  if (!meeting) {
-    const allText = (msgs || []).map(m => (m.text || '').toLowerCase()).join(' ') + ' ' + contact.toLowerCase();
-    const generic = new Set(['responder','revisar','enviar','mandar','contactar','confirmar','llamar',
-      'consultar','preguntar','contestar','escribir','seguir','hacer','tarea','mensaje','sobre',
-      'para','cosa','algo','tema','reunir','reunion','asistir','recibir','verse','juntarse','hablar']);
-    const meaningfulWords = (analysis.task || '').toLowerCase().split(/\s+/)
-      .filter(w => w.length >= 4 && !generic.has(w));
-    if (meaningfulWords.length >= 2 && !meaningfulWords.some(w => allText.includes(w))) {
-      console.log('[SKIP-HALLUCINATION] ' + contact + ': "' + analysis.task + '" no matchea');
-      return;
-    }
-  }
-
-  const type = analysis.type || 'pendiente';
-  const lastMsg = msgs[msgs.length - 1]?.text || '';
-  const keyMsg = (analysis.keyMessage || lastMsg).slice(0, 150);
-  const safeTask = (analysis.task || 'Revisar mensaje').slice(0, 100);
-  // Empresa: el mapeo aprendido del contacto manda; sino la inferencia de la IA
-  const company = getCachedCompany(contact) || validCompany(analysis.company) || null;
-  const dueDate = validDate(analysis.dueDate);
-
-  if (type === 'mio') {
-    const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='mio' LIMIT 1").get(contact);
-    if (existing) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,due_date=?,
-        meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-          analysis.urgent ? 1 : 0, analysis.category || 'personal', company, dueDate,
-          meeting?.date || null, meeting?.time || null, meeting?.location || null,
-          actionsJson, contactPhone, existing.id);
-      console.log('[MIO-UPDATE] ' + contact + ': ' + safeTask);
-      sseBroadcast('task_changed', { type: 'updated', taskType: 'mio', contact });
-      return;
-    }
-  } else {
-    const recentList = db.prepare(`
-      SELECT id, task FROM tasks
-      WHERE contact=? AND status='pending' AND type='pendiente'
-      AND created_at > datetime('now', '-2 hours')
-      ORDER BY created_at DESC LIMIT 5
-    `).all(contact);
-
-    const genericSet = new Set(['responder','revisar','enviar','mandar','contactar','confirmar','llamar','consultar','preguntar','contestar','escribir','seguir','hacer','tarea','mensaje','para','sobre','cosa','algo','tema','obtener','recibir']);
-    const newWords = safeTask.toLowerCase().split(/\s+/).filter(w => w.length >= 4 && !genericSet.has(w));
-    let matchedExisting = null;
-    for (const r of recentList) {
-      const oldWords = (r.task || '').toLowerCase().split(/\s+/).filter(w => w.length >= 4 && !genericSet.has(w));
-      if (newWords.some(w => oldWords.some(o => o.includes(w) || w.includes(o)))) { matchedExisting = r; break; }
-    }
-
-    if (matchedExisting) {
-      db.prepare(`UPDATE tasks SET preview=?,key_message=?,task=?,priority=?,urgent=?,category=?,company=?,due_date=?,
-        meeting_date=?,meeting_time=?,meeting_location=?,actions=?,phone=?,created_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-          analysis.urgent ? 1 : 0, analysis.category || 'personal', company, dueDate,
-          meeting?.date || null, meeting?.time || null, meeting?.location || null,
-          actionsJson, contactPhone, matchedExisting.id);
-      console.log('[PENDIENTE-UPDATE] ' + contact + ': ' + safeTask);
-      sseBroadcast('task_changed', { type: 'updated', taskType: 'pendiente', contact });
-      return;
-    }
-  }
-
-  // Fix: el INSERT original no incluía actions ni phone — datos se perdían en nuevas tareas
-  db.prepare(`INSERT INTO tasks
-    (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,
-     meeting_date,meeting_time,meeting_location,actions,phone)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(contact, lastMsg.slice(0, 80), keyMsg, safeTask, analysis.priority || 'hoy',
-      analysis.urgent ? 1 : 0, analysis.category || 'personal', company, dueDate, type, type === 'mio' ? 1 : 0,
-      meeting?.date || null, meeting?.time || null, meeting?.location || null,
-      actionsJson, contactPhone);
-  console.log('[' + type.toUpperCase() + '-NEW][' + (analysis.priority || 'hoy') + '] ' + contact + ': ' + safeTask);
-  sseBroadcast('task_changed', { type: 'new', taskType: type, contact });
-}
+// saveTask vive ahora en taskService.saveTask (módulo tasks). Alias local para
+// no tocar los call sites (webhook).
+const saveTask = (...a) => taskService.saveTask(...a);
 
 let sinResponderPending = {};
 function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
@@ -669,16 +421,23 @@ function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
       const history = getRecentHistory(contact);
       const lastInHistory = history[history.length - 1];
       if (lastInHistory && lastInHistory.fromMe) return;
-      const existing = db.prepare("SELECT id FROM tasks WHERE contact=? AND status='pending' AND type='sin_responder' LIMIT 1").get(contact);
+      const existing = taskRepo.findPendingByContactType(contact, 'sin_responder');
       if (!existing) {
         const phone = getCachedPhone(contact) || contactPhone || null;
         const srActions = [];
         if (phone) srActions.push({ type: 'whatsapp_contact', value: phone.replace(/\D/g, ''), label: 'WhatsApp' });
         srActions.push({ type: 'calendar', title: 'Responder a ' + contact, date: null, time: null, location: null });
-        db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,company,type,phone,actions) VALUES (?,?,?,?,?,?,?,?,?,?)")
-          .run(contact, lastMsg.slice(0, 80), (analysis.keyMessage || lastMsg).slice(0, 150),
-            'Responder a ' + contact, 'hoy', analysis.category || 'personal',
-            getCachedCompany(contact) || validCompany(analysis.company) || null, 'sin_responder', phone, JSON.stringify(srActions));
+        taskRepo.insertSinResponder({
+          contact,
+          preview: lastMsg.slice(0, 80),
+          keyMessage: (analysis.keyMessage || lastMsg).slice(0, 150),
+          task: 'Responder a ' + contact,
+          priority: 'hoy',
+          category: analysis.category || 'personal',
+          company: getCachedCompany(contact) || validCompany(analysis.company) || null,
+          phone,
+          actions: JSON.stringify(srActions),
+        });
         console.log('[SIN_RESPONDER - 4h] ' + contact);
         sseBroadcast('task_changed', { type: 'new', taskType: 'sin_responder', contact });
       }
@@ -688,7 +447,7 @@ function scheduleSinResponder(contact, msgs, analysis, contactPhone) {
 
 // ─── RATE LIMIT (webhook) ─────────────────────────────────────────────────────
 const _webhookRL = {};
-const WEBHOOK_RPM = 120;
+const WEBHOOK_RPM = C.WEBHOOK_RPM;
 function webhookAllowed(ip) {
   const now = Date.now();
   if (!_webhookRL[ip] || now - _webhookRL[ip].ts > 60000) {
@@ -705,7 +464,7 @@ setInterval(() => {
 // ─── BUFFERS ──────────────────────────────────────────────────────────────────
 let burstBuffer = {};
 const phoneCache = {};
-const PHONE_CACHE_TTL = 24 * 60 * 60 * 1000;
+const PHONE_CACHE_TTL = C.PHONE_CACHE_TTL;
 function setCachedPhone(contact, phone) {
   phoneCache[contact] = { phone, ts: Date.now() };
   db.prepare("INSERT OR REPLACE INTO contact_phones (contact, phone) VALUES (?,?)").run(contact, phone);
@@ -724,8 +483,8 @@ function getCachedPhone(contact) {
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 
 // ─── BOT: MENSAJES A MÍ MISMO ────────────────────────────────────────────────
-const MY_WA_NUMBER = process.env.MY_WA_NUMBER || '17542365652@c.us';
-const SERVWHITE_NUMBER = '61560420573356@lid';
+const MY_WA_NUMBER = env.MY_WA_NUMBER;
+const SERVWHITE_NUMBER = C.SERVWHITE_NUMBER;
 // Detectar si un mensaje es del propio Brandon (self-chat o mensaje desde su número)
 function isBrandonSelf(payload) {
   const from = payload.from || '';
@@ -741,9 +500,9 @@ function isBrandonSelf(payload) {
 
 async function sendWAMessage(to, text) {
   try {
-    const WAHA_URL2 = process.env.WAHA_URL || 'http://localhost:3000';
-    const WAHA_KEY2 = process.env.WAHA_API_KEY || 'pendiente2024';
-    const WAHA_SES2 = process.env.WAHA_SESSION || 'default';
+    const WAHA_URL2 = env.WAHA_URL;
+    const WAHA_KEY2 = env.WAHA_API_KEY || 'pendiente2024';
+    const WAHA_SES2 = env.WAHA_SESSION;
     await fetch(WAHA_URL2 + '/api/sendText', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Api-Key': WAHA_KEY2 },
@@ -765,7 +524,7 @@ async function processBotCommand(text, fromId, companyHint) {
   // piden ver la lista, no tareas que casualmente contengan "tengo"/"tarea"/"pendiente".
   const isQuery = /^\s*(qu[e\u00e9]\s+(tengo|hay|tareas?|pendientes?|debo|me falta|ten[i\u00ed]a)|cu[a\u00e1]les|mis\s+(tareas?|pendientes?|compromisos?)|mostr(ame|arme|[a\u00e1])|ver\s+(mis|tareas?|pendientes?)|dame\s+(la\s+lista|mis))\b/i.test(text);
   if (isQuery) {
-    const tasks = db.prepare("SELECT type, task, contact FROM tasks WHERE status=\'pending\' ORDER BY type, created_at ASC LIMIT 10").all();
+    const tasks = taskRepo.listPendingBrief();
     if (!tasks.length) {
       if (fromId) await sendWAMessage(fromId, ROBOT + ' No tens nada pendiente');
       return { query: true, count: 0 };
@@ -810,8 +569,19 @@ async function processBotCommand(text, fromId, companyHint) {
     }
 
     const meet = (a.meeting && (a.meeting.date || a.meeting.time)) ? a.meeting : null;
-    db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(a.contact || 'Yo', text.slice(0,80), text.slice(0,150), a.task, a.priority || 'hoy', 0, a.category || 'personal', validCompany(companyHint) || validCompany(a.company), validDate(a.dueDate), a.type || 'pendiente', 1, meet ? meet.date : null, meet ? meet.time : null);
+    taskRepo.insertBotTask({
+      contact: a.contact || 'Yo',
+      preview: text.slice(0, 80),
+      keyMessage: text.slice(0, 150),
+      task: a.task,
+      priority: a.priority || 'hoy',
+      category: a.category || 'personal',
+      company: validCompany(companyHint) || validCompany(a.company),
+      dueDate: validDate(a.dueDate),
+      type: a.type || 'pendiente',
+      meetingDate: meet ? meet.date : null,
+      meetingTime: meet ? meet.time : null,
+    });
     sseBroadcast('task_changed', { type: 'new', taskType: a.type });
     console.log('[BOT] Tarea creada: ' + a.task);
     if (fromId) await sendWAMessage(fromId, ROBOT + ' ' + CHECK + ' ' + (a.reply || 'Anotado: ' + a.task));
@@ -827,7 +597,7 @@ app.post('/webhook', async (req, res) => {
   const ip = req.ip || '';
   const isTrustedIP = ip === '::1' || ip === '127.0.0.1' || ip.startsWith('::ffff:127.') || ip.startsWith('::ffff:172.') || ip.startsWith('172.');
   const wahaKey = req.headers['x-api-key'];
-  const expectedKey = process.env.WAHA_API_KEY;
+  const expectedKey = env.WAHA_API_KEY;
   const keyOk = expectedKey && wahaKey === expectedKey;
   if (!isTrustedIP && !keyOk) {
     console.log('[WEBHOOK] Rechazado - auth fallida de', ip);
@@ -889,7 +659,7 @@ app.post('/webhook', async (req, res) => {
     saveToHistory(contact, text, fromMe);
 
     if (fromMe) {
-      db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE contact=? AND type='sin_responder' AND status='pending'").run(contact);
+      taskRepo.resolveSinResponderByContact(contact);
       if (sinResponderPending[contact]?.timer) {
         clearTimeout(sinResponderPending[contact].timer);
         delete sinResponderPending[contact];
@@ -932,103 +702,15 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ─── RUTAS API ────────────────────────────────────────────────────────────────
-app.get('/tasks', (req, res) => {
-  const type = req.query.type || 'pendiente';
-  const tasks = db.prepare(`
-    SELECT *, CAST((julianday('now')-julianday(created_at))*24 AS INTEGER) as hours
-    FROM tasks WHERE status='pending' AND type=?
-    ORDER BY CASE priority WHEN 'ahora' THEN 0 WHEN 'hoy' THEN 1 ELSE 2 END, created_at ASC
-  `).all(type);
-  const body = tasks.map(t => ({
-    id: t.id, contact: t.contact,
-    preview: t.key_message || t.preview,
-    task: t.task, priority: t.priority,
-    urgent: t.urgent === 1, category: t.category, company: t.company || null, type: t.type, fromMe: t.from_me === 1,
-    meeting: t.meeting_date || t.meeting_time ? { date: t.meeting_date, time: t.meeting_time, location: t.meeting_location } : null,
-    actions: t.actions ? (() => { try { return JSON.parse(t.actions); } catch(e) { return []; } })() : [],
-    phone: t.phone || null, dueDate: t.due_date || null,
-    hours: t.hours || 0, createdAt: t.created_at,
-  }));
-  const etag = '"' + require('crypto').createHash('md5').update(JSON.stringify(body)).digest('hex').slice(0, 16) + '"';
-  if (req.headers['if-none-match'] === etag) return res.status(304).end();
-  res.set('ETag', etag).set('Cache-Control', 'no-cache').json(body);
-});
+// Rutas de tareas (GET /tasks, DELETE /tasks/:id, PATCH .../snooze|postpone|keep|edit|feedback)
+// movidas al módulo backend/src/modules/tasks. Se montan acá, después de authMiddleware.
+app.use(taskRouter);
 
-// Validar que el :id sea un entero positivo
-function parseId(raw) {
-  const n = parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-app.delete('/tasks/:id', (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'invalid id' });
-  db.prepare("UPDATE tasks SET status='resolved',resolved_at=CURRENT_TIMESTAMP WHERE id=?").run(id);
-  sseBroadcast('task_changed', { type: 'resolved', id });
-  res.sendStatus(200);
-});
-
-app.patch('/tasks/:id/snooze', (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'invalid id' });
-  db.prepare("UPDATE tasks SET priority='semana',urgent=0 WHERE id=?").run(id);
-  sseBroadcast('task_changed', { type: 'snoozed', id });
-  res.sendStatus(200);
-});
-
-app.patch('/tasks/:id/postpone', (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'invalid id' });
-  const due = validDate((req.body || {}).dueDate);
-  if (!due) return res.status(400).json({ error: 'invalid date' });
-  // Posponer = fijar fecha y bajar prioridad; el escalado la vuelve a subir al acercarse
-  db.prepare("UPDATE tasks SET due_date=?, priority='semana', urgent=0 WHERE id=?").run(due, id);
-  escalateDueDates();
-  sseBroadcast('task_changed', { type: 'postponed', id });
-  res.sendStatus(200);
-});
-
-app.patch('/tasks/:id/keep', (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'invalid id' });
-  db.prepare("UPDATE tasks SET type='pendiente' WHERE id=?").run(id);
-  sseBroadcast('task_changed', { type: 'kept', id });
-  res.sendStatus(200);
-});
-
-app.patch('/tasks/:id/edit', (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'invalid id' });
-  const body = req.body || {};
-  const { task, priority, phone, company, dueDate } = body;
-  if (!task || typeof task !== 'string') return res.status(400).json({ error: 'task required' });
-  const trimmed = task.trim().slice(0, 200);
-  if (trimmed.length < 2) return res.status(400).json({ error: 'task too short' });
-
-  const sets = ['task=?'], vals = [trimmed];
-  if (['ahora', 'hoy', 'semana'].includes(priority)) { sets.push('priority=?'); vals.push(priority); }
-  const cleanPhone = phone ? phone.replace(/\D/g, '') : null;
-  if (cleanPhone) { sets.push('phone=?'); vals.push(cleanPhone); }
-  // company y dueDate: solo se tocan si vienen en el body (permite asignar o limpiar)
-  const hasCompany = Object.prototype.hasOwnProperty.call(body, 'company');
-  const companyVal = hasCompany ? validCompany(company) : null;
-  if (hasCompany) { sets.push('company=?'); vals.push(companyVal); }
-  if (dueDate !== undefined) { sets.push('due_date=?'); vals.push(dueDate ? String(dueDate).slice(0, 10) : null); }
-
-  vals.push(id);
-  db.prepare("UPDATE tasks SET " + sets.join(', ') + " WHERE id=?").run(...vals);
-
-  const t = db.prepare("SELECT contact FROM tasks WHERE id=?").get(id);
-  if (cleanPhone && t?.contact) setCachedPhone(t.contact, cleanPhone);
-  // Aprender empresa del contacto cuando Brandon la asigna manualmente
-  if (hasCompany && companyVal && t?.contact && t.contact !== 'Yo') setCachedCompany(t.contact, companyVal);
-
-  sseBroadcast('task_changed', { type: 'edited', id });
-  res.sendStatus(200);
-});
+// parseId (valida que el :id sea entero positivo) vive en
+// backend/src/shared/validation.js (importado arriba).
 
 // ─── RECURRENTES API ───────────────────────────────────────────────────────
-const CADENCES = ['daily', 'weekly', 'monthly', 'yearly'];
+const CADENCES = C.CADENCES;
 function buildRuleFromBody(body) {
   const title = (body.title || '').trim().slice(0, 120);
   if (title.length < 2) return { error: 'title required' };
@@ -1103,11 +785,11 @@ app.get('/feedback/stats', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  const tasks = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get();
+  const pendingTasks = taskRepo.countPending();
   const hist = db.prepare("SELECT COUNT(*) as n FROM conv_history").get();
   res.json({
     status: 'ok',
-    pendingTasks: tasks.n,
+    pendingTasks,
     queueLength: queue.length,
     historyMsgs: hist.n,
     sseClients: sseClients.length,
@@ -1140,25 +822,7 @@ app.get('/stream', (req, res) => {
   });
 });
 
-app.patch('/tasks/:id/feedback', (req, res) => {
-  const id = parseInt(req.params.id);
-  const { reason } = req.body || {};
-  if (!id || !['error','done'].includes(reason)) return res.status(400).json({ error: 'invalid' });
-  // Buscar la tarea para guardar contexto
-  const task = db.prepare("SELECT contact, task, preview FROM tasks WHERE id=?").get(id);
-  if (task) {
-    db.prepare("INSERT INTO feedback (task_id, contact, task, preview, reason) VALUES (?,?,?,?,?)")
-      .run(id, task.contact, task.task, task.preview, reason);
-    // Si es error de IA, guardarlo en negativos para el prompt
-    if (reason === 'error') {
-      console.log('[FEEDBACK-ERROR] IA se equivocó: '+task.contact+': '+task.task);
-    }
-  }
-  // Resolver la tarea
-  db.prepare("UPDATE tasks SET status='resolved', resolved_at=CURRENT_TIMESTAMP WHERE id=?").run(id);
-  sseBroadcast('task_changed', { type: 'resolved', id });
-  res.sendStatus(200);
-});
+// PATCH /tasks/:id/feedback movido al módulo tasks (montado vía taskRouter arriba).
 
 
 app.post('/bot/command', async (req, res) => {
@@ -1201,7 +865,7 @@ app.delete('/reset', (req, res) => {
 });
 
 // ─── DIGEST POR WHATSAPP (Fase 4) ────────────────────────────────────────────
-const COMPANY_NAMES = { financiera: 'Financiera', serviwhite: 'Serviwhite', tecnophos: 'Tecnophos', adc: 'ADC', transtide: 'Transtide', svn: 'SVN', personal: 'Personal' };
+const COMPANY_NAMES = C.COMPANY_NAMES;
 function compName(c) { return COMPANY_NAMES[c] || 'Sin empresa'; }
 function ddmm(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
 
@@ -1209,7 +873,7 @@ function buildDailyDigest() {
   const ROBOT = String.fromCodePoint(0x1F916), CAL = String.fromCodePoint(0x1F4C5),
     WARN = String.fromCodePoint(0x26A0), CLIP = String.fromCodePoint(0x1F4CB), PARTY = String.fromCodePoint(0x1F389);
   const today = todayISO_AR(), tomorrow = addDaysISO(today, 1);
-  const tasks = db.prepare("SELECT task, company, due_date FROM tasks WHERE status='pending' AND type IN ('pendiente','mio')").all();
+  const tasks = taskRepo.listPendingForDigest();
   if (!tasks.length) return ROBOT + ' Buen dia Brandon! No tenes pendientes. ' + PARTY;
   let msg = ROBOT + ' Buen dia Brandon\n' + CAL + ' ' + today + '\n';
   const urgent = tasks.filter(t => t.due_date && t.due_date <= tomorrow);
@@ -1227,7 +891,7 @@ function buildDailyDigest() {
 function buildWeeklyDigest() {
   const ROBOT = String.fromCodePoint(0x1F916), CAL = String.fromCodePoint(0x1F4C5);
   const today = todayISO_AR(), in7 = addDaysISO(today, 7);
-  const tasks = db.prepare("SELECT task, company, due_date FROM tasks WHERE status='pending' AND type IN ('pendiente','mio') AND due_date IS NOT NULL AND due_date <= ? ORDER BY due_date ASC").all(in7);
+  const tasks = taskRepo.listDueWithin(in7);
   if (!tasks.length) return ROBOT + ' Semana tranquila: sin vencimientos en los proximos 7 dias.';
   let msg = ROBOT + ' ' + CAL + ' Tu semana (' + tasks.length + ' vencimientos):\n\n';
   tasks.forEach(t => { msg += '- ' + ddmm(t.due_date) + ' [' + compName(t.company) + '] ' + t.task + '\n'; });
@@ -1275,4 +939,4 @@ app.post('/digest/test', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.listen(process.env.PORT || 3001, () => console.log('PendienteAI v6.3 - vista Hoy + posponer a fecha en puerto', process.env.PORT || 3001));
+app.listen(env.PORT, () => log.info('PendienteAI v6.3 - vista Hoy + posponer a fecha en puerto', env.PORT));
