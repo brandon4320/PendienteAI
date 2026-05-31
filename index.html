@@ -921,10 +921,10 @@ function hoyBucket(t){
     if(di.diff<0)return 'over';
     if(di.diff===0)return 'today';
     if(di.diff===1)return 'tom';
-    if(di.diff<=7)return 'week';
+    // 2-7 dias ya NO entra a Hoy: eso vive en Agenda
   }
   if(t.priority==='ahora')return 'urgent';
-  return null; // media/baja sin fecha cercana → no entra a Hoy
+  return null; // lo que vence mas adelante o sin urgencia no entra a Hoy
 }
 function hoyTasks(){
   let tasks=[...(data.pendiente||[]),...(data.mio||[])];
@@ -942,7 +942,7 @@ function renderHoyView(el){
   const tasks=hoyTasks();
   if(!tasks.length){
     const icon=svg('<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>',40);
-    el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">Nada urgente para hoy</div><div class="empty-sub">Acá aparece lo vencido, lo que vence esta semana y lo urgente de las 6 empresas</div></div>';
+    el.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div class="empty-title">Nada urgente para hoy</div><div class="empty-sub">Acá aparece lo vencido, lo que vence hoy o mañana y lo urgente. Lo que vence más adelante está en Agenda</div></div>';
     return;
   }
   const buckets=[
@@ -950,7 +950,6 @@ function renderHoyView(el){
     {k:'today',cls:'b-today',name:'Vencen hoy'},
     {k:'urgent',cls:'b-urgent',name:'Urgente'},
     {k:'tom',cls:'b-tom',name:'Mañana'},
-    {k:'week',cls:'b-week',name:'Esta semana'},
   ];
   const grouped={};tasks.forEach(t=>{const b=hoyBucket(t);(grouped[b]=grouped[b]||[]).push(t);});
   let html='',gi=0;
