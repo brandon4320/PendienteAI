@@ -760,11 +760,46 @@ app.post('/recurring', (req, res) => {
 app.patch('/recurring/:id', (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'invalid id' });
-  if (typeof (req.body || {}).active === 'boolean') {
-    db.prepare("UPDATE recurring SET active=? WHERE id=?").run(req.body.active ? 1 : 0, id);
+  const body = req.body || {};
+  if (body.title !== undefined) {
+    // Edición completa: rebuilds con buildRuleFromBody para validar
+    const { rule, error } = buildRuleFromBody(body);
+    if (error) return res.status(400).json({ error });
+    // next_run: usar el provisto si es YYYY-MM-DD válido, sino recalcular desde hoy
+    const nextRun = (body.nextRun && /^\d{4}-\d{2}-\d{2}$/.test(body.nextRun))
+      ? body.nextRun
+      : computeNextRunISO(rule, todayISO_AR());
+    db.prepare(`UPDATE recurring SET title=?,company=?,priority=?,category=?,cadence=?,interval=?,
+      day_of_week=?,day_of_month=?,month=?,next_run=?,active=? WHERE id=?`)
+      .run(rule.title, rule.company, rule.priority, rule.category, rule.cadence, rule.interval,
+        rule.day_of_week, rule.day_of_month, rule.month, nextRun,
+        typeof body.active === 'boolean' ? (body.active ? 1 : 0) : 1, id);
+  } else if (typeof body.active === 'boolean') {
+    // Toggle activo/inactivo solamente
+    db.prepare("UPDATE recurring SET active=? WHERE id=?").run(body.active ? 1 : 0, id);
   }
   sseBroadcast('task_changed', { type: 'recurring_rule' });
   res.sendStatus(200);
+});
+
+// Crear una tarea normal inmediata a partir de una recurrente (sin avanzar next_run)
+app.post('/recurring/:id/create-task', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'invalid id' });
+  const r = db.prepare("SELECT * FROM recurring WHERE id=?").get(id);
+  if (!r) return res.status(404).json({ error: 'not found' });
+  const today = todayISO_AR();
+  taskRepo.insertRecurringTask({
+    preview:    r.title.slice(0, 80),
+    keyMessage: r.title.slice(0, 150),
+    task:       r.title.slice(0, 100),
+    priority:   r.priority || 'hoy',
+    category:   r.category || 'trabajo',
+    company:    validCompany(r.company),
+    dueDate:    today,
+  });
+  sseBroadcast('task_changed', { taskType: 'pendiente' });
+  res.json({ ok: true });
 });
 
 app.delete('/recurring/:id', (req, res) => {

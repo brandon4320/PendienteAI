@@ -320,6 +320,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* FOCUS VISIBLE */
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[role="article"]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
+/* VISTA REPETIR — filtros, agrupado, badges */
+.recur-filters{display:flex;gap:5px;overflow-x:auto;padding:0 0 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-shrink:0}
+.recur-filters::-webkit-scrollbar{display:none}
+/* Badge de estado activa/pausada */
+.rrow-status{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.rrow-status.on{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
+.rrow-status.off{background:var(--bg);color:var(--muted2);border:1px solid var(--border)}
+/* Acciones de recurrente — row de botones compactos */
+.rrow-actions{display:flex;gap:4px;flex-shrink:0}
+.rbtn.create{border-color:var(--green-b);color:var(--green)}
+.rbtn.edit{border-color:var(--blue-b);color:var(--blue)}
+
 /* REDUCED MOTION */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
@@ -462,7 +474,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 <!-- MODAL NUEVA RECURRENTE -->
 <div class="modal-overlay" id="recurModal" role="dialog" aria-modal="true" aria-label="Nueva tarea recurrente" onclick="closeRecur()">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Tarea recurrente</div>
+    <div class="modal-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg><span id="recurModalTitle">Tarea recurrente</span></div>
     <label class="modal-label" for="recurTitle">Tarea</label>
     <input type="text" class="modal-input" id="recurTitle" maxlength="120" placeholder="Ej: Pagar IVA" />
     <label class="modal-label">Empresa</label>
@@ -477,7 +489,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <div id="recurDayWrap"></div>
     <div class="modal-actions">
       <button type="button" class="btn-cancel" onclick="closeRecur()">Cancelar</button>
-      <button type="button" class="btn-save" onclick="saveRecur()">Crear</button>
+      <button type="button" class="btn-save" id="recurSaveBtn" onclick="saveRecur()">Crear</button>
     </div>
   </div>
 </div>
@@ -1031,6 +1043,7 @@ function renderHoyItem(t,gi){
 }
 // ── RECURRENTES ─────────────────────────────────────────────────────────────
 let recurData=[];
+let recurFilter='all'; // filtro de empresa para la vista Repetir
 const DOW_SHORT=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const MON_SHORT=['','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 async function loadRecurring(){
@@ -1042,55 +1055,150 @@ function cadenceDesc(r){
   const n=r.interval||1;
   if(r.cadence==='daily')return n>1?('Cada '+n+' días'):'Todos los días';
   if(r.cadence==='weekly')return(n>1?('Cada '+n+' sem · '):'Cada ')+DOW_SHORT[r.dayOfWeek||0];
-  if(r.cadence==='monthly')return(n>1?('Cada '+n+' meses'):'Cada mes')+' (día '+r.dayOfMonth+')';
-  if(r.cadence==='yearly')return(n>1?('Cada '+n+' años'):'Cada año')+' '+r.dayOfMonth+' '+MON_SHORT[r.month||1];
+  if(r.cadence==='monthly')return(n>1?('Cada '+n+' meses'):'Cada mes')+' · día '+r.dayOfMonth;
+  if(r.cadence==='yearly')return(n>1?('Cada '+n+' años'):'Cada año')+' · '+r.dayOfMonth+' '+MON_SHORT[r.month||1];
   return r.cadence;
 }
+function setRecurFilter(c){
+  recurFilter=c;
+  renderRecurView(document.getElementById('content'));
+}
 function renderRecurView(el){
-  let html='<button type="button" class="recur-add" onclick="openRecur()">'+svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',15)+' Nueva recurrente</button>';
-  if(!recurData.length){
-    html+='<div class="empty"><div class="empty-icon">'+svg('<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',40)+'</div><div class="empty-title">Sin recurrentes</div><div class="empty-sub">Creá reglas para lo que se repite: pagos, facturación, vencimientos mensuales…</div></div>';
-    el.innerHTML=html;return;
+  clearHandlers();
+  // Filtros por empresa
+  const presentKeys=COMPANY_ORDER.filter(k=>recurData.some(r=>(r.company||null)===k));
+  let filterHtml='';
+  if(recurData.length>1){
+    filterHtml='<div class="recur-filters">';
+    filterHtml+='<button type="button" class="cmp'+(recurFilter==='all'?' active':'')+'" onclick="setRecurFilter(\'all\')">Todas</button>';
+    for(const k of presentKeys){
+      const m=companyMeta(k);
+      filterHtml+='<button type="button" class="cmp '+companyClass(k)+(recurFilter===k?' active':'')+'" onclick="setRecurFilter(\''+k+'\')"><span class="cdot"></span>'+m.name+'</button>';
+    }
+    filterHtml+='</div>';
   }
-  for(const r of recurData){
-    const comp=r.company||null,m=companyMeta(comp),cc=companyClass(comp);
-    const ti=reg(()=>toggleRecurActive(r.id,!r.active));
-    const di=reg(()=>deleteRecurring(r.id));
-    const pauseIcon=r.active?'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>':'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
-    html+='<div class="rrow'+(r.active?'':' off')+'">'+
-      '<div class="cg-av av-comp '+cc+'">'+(m.name[0]||'•')+'</div>'+
-      '<div class="rrow-body">'+
-        '<div class="rrow-title">'+esc(r.title)+'</div>'+
-        '<div class="rrow-meta"><span class="rrow-cad">'+cadenceDesc(r)+'</span><span class="comp-chip '+cc+'">'+m.name+'</span>'+(r.nextRun?'<span class="rrow-next">próx '+fmtDate(r.nextRun)+'</span>':'')+'</div>'+
-      '</div>'+
-      '<button type="button" class="rbtn" onclick="_h['+ti+']()" aria-label="'+(r.active?'Pausar':'Activar')+'">'+pauseIcon+'</button>'+
-      '<button type="button" class="rbtn del" onclick="_h['+di+']()" aria-label="Borrar">'+IC.trash+'</button>'+
-    '</div>';
+  const newBtn='<button type="button" class="recur-add" onclick="openRecur()">'+svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',15)+' Nueva recurrente</button>';
+  // Filtrar por empresa
+  let filtered=recurData.slice();
+  if(recurFilter!=='all')filtered=filtered.filter(r=>(r.company||null)===recurFilter);
+  if(!filtered.length){
+    const emptyMsg=recurFilter!=='all'?'Sin recurrentes de '+companyMeta(recurFilter).name:'No tenés tareas recurrentes todavía';
+    const emptyIcon=svg('<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',40);
+    el.innerHTML=filterHtml+newBtn+'<div class="empty"><div class="empty-icon">'+emptyIcon+'</div><div class="empty-title">'+emptyMsg+'</div><div class="empty-sub">Creá reglas para pagos, vencimientos y actividades que se repiten…</div></div>';
+    return;
   }
-  el.innerHTML=html;
+  // Agrupar por empresa (null = sin asignar)
+  const compGroups={};
+  for(const r of filtered){
+    const k=r.company||null;
+    if(!compGroups[k])compGroups[k]=[];
+    compGroups[k].push(r);
+  }
+  // Ordenar grupos por COMPANY_ORDER; null (sin asignar) al final
+  const sortedKeys=Object.keys(compGroups).sort((a,b)=>{
+    const ia=a?COMPANY_ORDER.indexOf(a):99;
+    const ib=b?COMPANY_ORDER.indexOf(b):99;
+    return (ia<0?99:ia)-(ib<0?99:ib);
+  });
+  let cardsHtml='';
+  for(const key of sortedKeys){
+    const list=compGroups[key];
+    const m=companyMeta(key===''?null:key);
+    const cc=companyClass(key===''?null:key);
+    // Sección de empresa (solo si se muestran varias)
+    if(recurFilter==='all'){
+      cardsHtml+='<div class="section-hdr '+cc+'"><span class="comp-chip">'+m.name+'</span> · '+list.length+'</div>';
+    }
+    // Ordenar: activas primero, luego por next_run
+    list.sort((a,b)=>(b.active?1:0)-(a.active?1:0)||(a.nextRun||'9999').localeCompare(b.nextRun||'9999'));
+    for(const r of list){
+      const ti=reg(()=>toggleRecurActive(r.id,!r.active));
+      const di=reg(()=>deleteRecurring(r.id));
+      const ei=reg(()=>openEditRecur(r.id));
+      const ci=reg(()=>createNowRecur(r.id));
+      const pauseIcon=r.active
+        ?'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+        :'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+      const nextLbl=r.nextRun?'<span class="rrow-next">próx '+fmtDate(r.nextRun)+'</span>':'';
+      const statusBadge='<span class="rrow-status '+(r.active?'on':'off')+'">'+(r.active?'Activa':'Pausada')+'</span>';
+      cardsHtml+='<div class="rrow'+(r.active?'':' off')+'">'+
+        '<div class="rrow-body">'+
+          '<div class="rrow-title">'+esc(r.title)+'</div>'+
+          '<div class="rrow-meta"><span class="rrow-cad">'+cadenceDesc(r)+'</span>'+nextLbl+statusBadge+'</div>'+
+        '</div>'+
+        '<div class="rrow-actions">'+
+          '<button type="button" class="rbtn create" onclick="_h['+ci+']()" aria-label="Crear tarea ahora" title="Crear tarea ahora">'+IC.check+'</button>'+
+          '<button type="button" class="rbtn edit" onclick="_h['+ei+']()" aria-label="Editar">'+IC.pencil+'</button>'+
+          '<button type="button" class="rbtn" onclick="_h['+ti+']()" aria-label="'+(r.active?'Pausar':'Activar')+'">'+pauseIcon+'</button>'+
+          '<button type="button" class="rbtn del" onclick="_h['+di+']()" aria-label="Borrar">'+IC.trash+'</button>'+
+        '</div>'+
+      '</div>';
+    }
+  }
+  el.innerHTML=filterHtml+newBtn+cardsHtml;
 }
 async function toggleRecurActive(id,active){
   try{await apiFetch(API+'/recurring/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})});}catch(e){}
   const r=recurData.find(x=>x.id==id);if(r)r.active=active;
-  renderTasks();
+  renderRecurView(document.getElementById('content'));
 }
 async function deleteRecurring(id){
   if(!confirm('¿Borrar esta regla recurrente?'))return;
   try{await apiFetch(API+'/recurring/'+id,{method:'DELETE'});}catch(e){}
-  recurData=recurData.filter(x=>x.id!=id);renderTasks();
+  recurData=recurData.filter(x=>x.id!=id);
+  renderRecurView(document.getElementById('content'));
 }
-// ── MODAL NUEVA RECURRENTE ──
-let recurCadence='monthly',recurCompany='',recurDow=1;
+// Crear una tarea normal ahora, basada en la recurrente
+async function createNowRecur(id){
+  const r=recurData.find(x=>x.id==id);
+  try{
+    const res=await apiFetch(API+'/recurring/'+id+'/create-task',{method:'POST'});
+    if(!res.ok)throw new Error('fail');
+    toast('Tarea creada'+(r?' · '+r.title.slice(0,25):''));
+    loadAll();
+  }catch(e){if(e.message!=='401')toast('Error al crear tarea');}
+}
+// ── MODAL CREAR / EDITAR RECURRENTE ──
+let recurCadence='monthly',recurCompany='',recurDow=1,recurEditId=null;
 function openRecur(){
+  recurEditId=null;
   recurCadence='monthly';recurCompany=(companyFilter!=='all')?companyFilter:'';recurDow=1;
   document.getElementById('recurTitle').value='';
+  const t=document.getElementById('recurModalTitle');if(t)t.textContent='Tarea recurrente';
+  const s=document.getElementById('recurSaveBtn');if(s)s.textContent='Crear';
   buildRecurComp();
   document.querySelectorAll('#recurCad .mp').forEach(b=>b.classList.toggle('active',b.dataset.c==='monthly'));
   renderRecurDay();
   document.getElementById('recurModal').classList.add('show');
   setTimeout(()=>document.getElementById('recurTitle').focus(),100);
 }
-function closeRecur(){document.getElementById('recurModal').classList.remove('show');}
+function openEditRecur(id){
+  const r=recurData.find(x=>x.id==id);if(!r)return;
+  recurEditId=id;
+  recurCadence=r.cadence||'monthly';
+  recurCompany=r.company||'';
+  recurDow=r.dayOfWeek||1;
+  document.getElementById('recurTitle').value=r.title||'';
+  const t=document.getElementById('recurModalTitle');if(t)t.textContent='Editar recurrente';
+  const s=document.getElementById('recurSaveBtn');if(s)s.textContent='Guardar';
+  buildRecurComp();
+  document.querySelectorAll('#recurCad .mp').forEach(b=>b.classList.toggle('active',b.dataset.c===recurCadence));
+  renderRecurDay();
+  // Rellenar campos dinámicos después de que renderRecurDay los cree
+  setTimeout(()=>{
+    const intEl=document.getElementById('recurInterval');if(intEl)intEl.value=r.interval||1;
+    const domEl=document.getElementById('recurDom');if(domEl&&r.dayOfMonth!=null)domEl.value=r.dayOfMonth;
+    const monEl=document.getElementById('recurMonth');if(monEl&&r.month!=null)monEl.value=r.month;
+  },30);
+  document.getElementById('recurModal').classList.add('show');
+  setTimeout(()=>document.getElementById('recurTitle').focus(),100);
+}
+function closeRecur(){
+  document.getElementById('recurModal').classList.remove('show');
+  recurEditId=null;
+  const t=document.getElementById('recurModalTitle');if(t)t.textContent='Tarea recurrente';
+  const s=document.getElementById('recurSaveBtn');if(s)s.textContent='Crear';
+}
 function buildRecurComp(){
   const el=document.getElementById('recurComp');
   let html='<button type="button" class="qchip'+(recurCompany===''?' active':'')+'" onclick="setRecurComp(\'\',this)">Sin empresa</button>';
@@ -1125,12 +1233,23 @@ async function saveRecur(){
   if(recurCadence==='weekly')body.dayOfWeek=recurDow;
   if(recurCadence==='monthly')body.dayOfMonth=parseInt(document.getElementById('recurDom').value,10)||1;
   if(recurCadence==='yearly'){body.month=parseInt(document.getElementById('recurMonth').value,10)||1;body.dayOfMonth=parseInt(document.getElementById('recurDom').value,10)||1;}
-  try{
-    const r=await apiFetch(API+'/recurring',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error('fail');
-    closeRecur();toast('🔁 Recurrente creada');
-    loadRecurring();loadAll();
-  }catch(e){if(e.message!=='401')toast('Error al crear');}
+  if(recurEditId){
+    // Modo edición
+    try{
+      const r=await apiFetch(API+'/recurring/'+recurEditId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error('fail');
+      closeRecur();toast('Recurrente actualizada');
+      loadRecurring();
+    }catch(e){if(e.message!=='401')toast('Error al actualizar');}
+  }else{
+    // Modo creación
+    try{
+      const r=await apiFetch(API+'/recurring',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error('fail');
+      closeRecur();toast('Recurrente creada');
+      loadRecurring();loadAll();
+    }catch(e){if(e.message!=='401')toast('Error al crear');}
+  }
 }
 function renderTasks(){
   clearHandlers();
