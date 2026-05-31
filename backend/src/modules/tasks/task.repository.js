@@ -5,11 +5,25 @@ const db = require('../../db/connection');
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
 function listPendingByType(type) {
+  // Solo tareas confirmadas. Los items del inbox de WhatsApp (whatsapp_inbox),
+  // descartados (discarded) y sin acción (no_action) quedan fuera de las vistas normales.
   return db.prepare(`
     SELECT *, CAST((julianday('now')-julianday(created_at))*24 AS INTEGER) as hours
-    FROM tasks WHERE status='pending' AND type=?
+    FROM tasks WHERE status='pending' AND type=? AND (review_status='confirmed' OR review_status IS NULL)
     ORDER BY CASE priority WHEN 'ahora' THEN 0 WHEN 'hoy' THEN 1 ELSE 2 END, created_at ASC
   `).all(type);
+}
+// Inbox de WhatsApp: items detectados por IA pendientes de revisión.
+function listWhatsappInbox() {
+  return db.prepare(`
+    SELECT *, CAST((julianday('now')-julianday(created_at))*24 AS INTEGER) as hours
+    FROM tasks WHERE status='pending' AND review_status='whatsapp_inbox'
+    ORDER BY created_at DESC
+  `).all();
+}
+// Cambia el estado de revisión (whatsapp_inbox | confirmed | discarded | no_action)
+function setReviewStatus(id, reviewStatus) {
+  return db.prepare("UPDATE tasks SET review_status=? WHERE id=?").run(reviewStatus, id);
 }
 function countPending() {
   return db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get().n;
@@ -109,27 +123,29 @@ function updateOnSave(id, p) {
       p.meetingDate, p.meetingTime, p.meetingLocation, p.actions, p.phone, id);
 }
 function insertFull(p) {
+  // review_status/source: si no vienen en p, caen al DEFAULT de la tabla ('confirmed'/NULL)
   return db.prepare(`INSERT INTO tasks
     (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,
-     meeting_date,meeting_time,meeting_location,actions,phone)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+     meeting_date,meeting_time,meeting_location,actions,phone,review_status,source)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(p.contact, p.preview, p.keyMessage, p.task, p.priority, p.urgent, p.category, p.company, p.dueDate, p.type, p.fromMe,
-      p.meetingDate, p.meetingTime, p.meetingLocation, p.actions, p.phone);
+      p.meetingDate, p.meetingTime, p.meetingLocation, p.actions, p.phone,
+      p.reviewStatus || 'confirmed', p.source || null);
 }
 // Sin responder: type fijo 'sin_responder'
 function insertSinResponder(p) {
   return db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,category,company,type,phone,actions) VALUES (?,?,?,?,?,?,?,?,?,?)")
     .run(p.contact, p.preview, p.keyMessage, p.task, p.priority, p.category, p.company, 'sin_responder', p.phone, p.actions);
 }
-// Recurrente: contact 'Yo', type 'pendiente', from_me 1
+// Recurrente: contact 'Yo', type 'pendiente', from_me 1, source 'recurring', confirmada
 function insertRecurringTask(p) {
-  return db.prepare(`INSERT INTO tasks (contact,preview,key_message,task,priority,category,company,due_date,type,from_me)
-    VALUES ('Yo',?,?,?,?,?,?,?,'pendiente',1)`)
+  return db.prepare(`INSERT INTO tasks (contact,preview,key_message,task,priority,category,company,due_date,type,from_me,review_status,source)
+    VALUES ('Yo',?,?,?,?,?,?,?,'pendiente',1,'confirmed','recurring')`)
     .run(p.preview, p.keyMessage, p.task, p.priority, p.category, p.company, p.dueDate);
 }
-// Bot / quick-add: urgent 0, from_me 1
+// Bot / quick-add: urgent 0, from_me 1, source 'bot', confirmada (no pasa por inbox)
 function insertBotTask(p) {
-  return db.prepare('INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,meeting_date,meeting_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  return db.prepare("INSERT INTO tasks (contact,preview,key_message,task,priority,urgent,category,company,due_date,type,from_me,meeting_date,meeting_time,review_status,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'confirmed','bot')")
     .run(p.contact, p.preview, p.keyMessage, p.task, p.priority, 0, p.category, p.company, p.dueDate, p.type, 1, p.meetingDate, p.meetingTime);
 }
 
@@ -140,7 +156,7 @@ function insertFeedback(taskId, contact, task, preview, reason) {
 }
 
 module.exports = {
-  listPendingByType, countPending, getContactById, getFeedbackContext,
+  listPendingByType, listWhatsappInbox, setReviewStatus, countPending, getContactById, getFeedbackContext,
   findPendingByContactType, findRecentPendiente, findDuplicateContacts, findLatestPendiente,
   listPendingForDigest, listDueWithin, listPendingBrief,
   resolveById, snoozeById, postponeById, keepById, updateDynamic,

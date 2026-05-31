@@ -56,6 +56,38 @@ function createTaskController({ taskService }) {
     res.sendStatus(200);
   }
 
+  // GET /whatsapp-inbox
+  function inbox(req, res) {
+    const body = taskService.listInbox();
+    const etag = '"' + crypto.createHash('md5').update(JSON.stringify(body)).digest('hex').slice(0, 16) + '"';
+    if (req.headers['if-none-match'] === etag) return res.status(304).end();
+    res.set('ETag', etag).set('Cache-Control', 'no-cache').json(body);
+  }
+
+  // PATCH /tasks/:id/confirm  → pasar a tarea real
+  function confirm(req, res) {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    taskService.confirmTask(id);
+    res.sendStatus(200);
+  }
+
+  // PATCH /tasks/:id/discard  → descartar
+  function discard(req, res) {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    taskService.discardTask(id);
+    res.sendStatus(200);
+  }
+
+  // PATCH /tasks/:id/no-action  → no requiere acción
+  function noAction(req, res) {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    taskService.noActionTask(id);
+    res.sendStatus(200);
+  }
+
   // PATCH /tasks/:id/feedback
   function feedback(req, res) {
     const id = parseInt(req.params.id);
@@ -65,7 +97,7 @@ function createTaskController({ taskService }) {
     res.sendStatus(200);
   }
 
-  return { list, remove, snooze, postpone, keep, edit, feedback };
+  return { list, remove, snooze, postpone, keep, edit, feedback, inbox, confirm, discard, noAction };
 }
 
 module.exports = { createTaskController };

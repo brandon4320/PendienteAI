@@ -14,6 +14,26 @@ function createTaskService(deps) {
     return repo.listPendingByType(type).map(toTaskDTO);
   }
 
+  // ── Inbox de WhatsApp ────────────────────────────────────────────────────────
+  function listInbox() {
+    return repo.listWhatsappInbox().map(toTaskDTO);
+  }
+  // "Pasar a tarea": el item del inbox pasa a tarea real (aparece en vistas normales)
+  function confirmTask(id) {
+    repo.setReviewStatus(id, 'confirmed');
+    sseBroadcast('task_changed', { type: 'confirmed', id });
+  }
+  // "Descartar": sale del inbox y no se muestra en ninguna vista
+  function discardTask(id) {
+    repo.setReviewStatus(id, 'discarded');
+    sseBroadcast('task_changed', { type: 'discarded', id });
+  }
+  // "No requiere acción": sale del inbox y no se muestra en ninguna vista
+  function noActionTask(id) {
+    repo.setReviewStatus(id, 'no_action');
+    sseBroadcast('task_changed', { type: 'no_action', id });
+  }
+
   // ── Creación/actualización desde análisis IA (antes saveTask en server.js) ──
   function saveTask(contact, msgs, analysis, contactPhone) {
     if (!analysis.needsAction || analysis.priority === 'ignorar') return;
@@ -83,6 +103,9 @@ function createTaskService(deps) {
       meetingLocation: meeting?.location || null,
       actions: actionsJson,
       phone: contactPhone,
+      // Origen WhatsApp automático: entra al inbox de revisión, NO directo a tareas reales.
+      reviewStatus: 'whatsapp_inbox',
+      source: 'whatsapp',
     };
 
     if (type === 'mio') {
@@ -199,6 +222,7 @@ function createTaskService(deps) {
 
   return {
     listTasks, saveTask,
+    listInbox, confirmTask, discardTask, noActionTask,
     resolveTask, snoozeTask, postponeTask, keepTask, editTask, feedbackResolve,
     escalateDueDates, consolidateDuplicates,
   };

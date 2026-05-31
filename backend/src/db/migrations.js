@@ -52,6 +52,11 @@ function runMigrations(db) {
   if (!cols.includes('key_message')) db.exec("ALTER TABLE tasks ADD COLUMN key_message TEXT");
   if (!cols.includes('company'))     db.exec("ALTER TABLE tasks ADD COLUMN company TEXT");
   if (!cols.includes('due_date'))    db.exec("ALTER TABLE tasks ADD COLUMN due_date TEXT");
+  // Inbox de WhatsApp: review_status separa items por revisar de tareas confirmadas.
+  // Default 'confirmed' para que TODAS las filas existentes sigan apareciendo igual que antes.
+  if (!cols.includes('review_status')) db.exec("ALTER TABLE tasks ADD COLUMN review_status TEXT DEFAULT 'confirmed'");
+  if (!cols.includes('source'))        db.exec("ALTER TABLE tasks ADD COLUMN source TEXT DEFAULT NULL");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_review_status ON tasks(review_status)");
   db.exec("CREATE TABLE IF NOT EXISTS contact_phones (contact TEXT PRIMARY KEY, phone TEXT)");
   db.exec("CREATE TABLE IF NOT EXISTS contact_company (contact TEXT PRIMARY KEY, company TEXT)");
   db.exec(`

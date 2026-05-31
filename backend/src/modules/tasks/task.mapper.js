@@ -10,6 +10,7 @@ function toTaskDTO(t) {
     actions: t.actions ? (() => { try { return JSON.parse(t.actions); } catch (e) { return []; } })() : [],
     phone: t.phone || null, dueDate: t.due_date || null,
     hours: t.hours || 0, createdAt: t.created_at,
+    reviewStatus: t.review_status || 'confirmed', source: t.source || null,
   };
 }
 

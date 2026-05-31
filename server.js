@@ -137,6 +137,12 @@ function runRecurring() {
   }
 }
 
+// sseClients se inicializa ACÁ (antes de los llamados de arranque) porque
+// escalateDueDates/runRecurring/consolidateDuplicates pueden emitir por SSE al
+// bootear; si la declaración quedaba más abajo, sseBroadcast accedía a sseClients
+// en zona muerta temporal (TDZ) y crasheaba el arranque cuando había algo que escalar.
+let sseClients = [];
+
 escalateDueDates();
 runRecurring();
 setInterval(escalateDueDates, 3 * 60 * 60 * 1000); // cada 3 horas
@@ -281,7 +287,7 @@ function getRecentHistory(contact) {
 
 // ─── SSE ──────────────────────────────────────────────────────────────────────
 const SSE_MAX_CLIENTS = C.SSE_MAX_CLIENTS;
-let sseClients = [];
+// sseClients se declara más arriba (antes de los llamados de arranque) para evitar TDZ.
 
 function sseBroadcast(eventType, data) {
   const payload = 'event: ' + eventType + '\ndata: ' + JSON.stringify(data || {}) + '\n\n';
