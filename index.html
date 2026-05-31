@@ -262,8 +262,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .modal-actions{display:flex;gap:8px}
 .btn-cancel{flex:1;padding:11px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;min-height:44px}
 .btn-save{flex:1;padding:11px;background:var(--green);border:none;color:white;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;min-height:44px}
-.tcard.dismissing{animation:out 0.28s ease forwards}
-@keyframes out{to{opacity:0;transform:translateX(40px);max-height:0;margin:0;padding:0;border:none}}
+.tcard.dismissing,.sw-wrap.dismissing{animation:out .28s ease forwards;pointer-events:none}
+@keyframes out{to{opacity:0;max-height:0;margin:0;padding:0;border:none}}
+/* SWIPE WRAPPER */
+.sw-wrap{position:relative;overflow:hidden;border-radius:var(--r-md);margin-bottom:3px}
+.sw-wrap .tcard{margin-bottom:0;border-radius:var(--r-md);position:relative;z-index:1;will-change:transform}
+.sw-ok-bg{position:absolute;left:0;top:0;bottom:0;right:0;background:var(--green);border-radius:var(--r-md);display:flex;align-items:center;padding-left:20px;opacity:0;pointer-events:none;transition:opacity .08s}
+.sw-actions{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;z-index:0}
+.sw-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:65px;font-size:10px;font-weight:700;border:none;cursor:pointer;padding:0;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.sw-btn-psp{background:var(--amber);color:#fff}
+.sw-btn-dis{background:var(--red);color:#fff}
 
 /* EMPTY, LOADING, ERROR */
 .empty{text-align:center;padding:48px 16px}
@@ -767,7 +775,7 @@ async function loadInbox(){
   }
 }
 async function confirmInbox(id){
-  document.getElementById('card-'+id)?.classList.add('dismissing');
+  dismissCard(id);
   try{await apiFetch(API+'/tasks/'+id+'/confirm',{method:'PATCH'});}catch(e){if(e.message==='401')return;}
   data.inbox=data.inbox.filter(t=>t.id!=id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
@@ -775,14 +783,14 @@ async function confirmInbox(id){
   loadAll(); // recargar pools para que aparezca en Hoy/Todo/Agenda
 }
 async function discardInbox(id){
-  document.getElementById('card-'+id)?.classList.add('dismissing');
+  dismissCard(id);
   try{await apiFetch(API+'/tasks/'+id+'/discard',{method:'PATCH'});}catch(e){if(e.message==='401')return;}
   data.inbox=data.inbox.filter(t=>t.id!=id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
   toast('🗑️ Descartado');
 }
 async function noActionInbox(id){
-  document.getElementById('card-'+id)?.classList.add('dismissing');
+  dismissCard(id);
   try{await apiFetch(API+'/tasks/'+id+'/no-action',{method:'PATCH'});}catch(e){if(e.message==='401')return;}
   data.inbox=data.inbox.filter(t=>t.id!=id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
@@ -822,7 +830,7 @@ async function doPostpone(when){
   else if(/^\d{4}-\d{2}-\d{2}$/.test(when))due=when;
   else return;
   closePostpone();
-  document.getElementById('card-'+id)?.classList.add('dismissing');
+  dismissCard(id);
   try{await apiFetch(API+'/tasks/'+id+'/postpone',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({dueDate:due})});}
   catch(e){if(e.message==='401')return;}
   for(const k of Object.keys(data)){const t=data[k].find(x=>x.id==id);if(t){t.dueDate=due;t.priority='semana';}}
@@ -1268,6 +1276,7 @@ async function saveRecur(){
 }
 function renderTasks(){
   clearHandlers();
+  _swRevealEl=null;
   updateCompanyCounts();
   updateHoyBadge();
   const el=document.getElementById('content');
@@ -1472,7 +1481,7 @@ function renderCard(t){
   const headline=esc(t.task||t.preview||'');
   const compTag=isMio?'<span class="tc-tag-comp">Compromiso</span>':'';
   const hasContext=t.preview&&t.task&&t.preview.trim()!==t.task.trim();
-  return '<div class="tcard '+companyClass(t.company)+' '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
+  const cardHtml='<div class="tcard '+companyClass(t.company)+' '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
     '<div class="tc-top">'+
     '<div class="prio-dot '+pc.dot+'" aria-hidden="true"></div>'+
     '<div class="tc-body">'+
@@ -1484,6 +1493,18 @@ function renderCard(t){
     renderActionChips(t)+
     '<div class="dactions">'+actions+'</div>'+
     '</div></div>';
+  if(isInbox||isSin)return cardHtml;
+  const _swOk=svg('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',22);
+  const _swClock=svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',18);
+  const _swTrash=svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>',18);
+  return '<div class="sw-wrap">'+
+    '<div class="sw-ok-bg" aria-hidden="true">'+_swOk+'</div>'+
+    '<div class="sw-actions">'+
+      '<button type="button" class="sw-btn sw-btn-psp" onclick="event.stopPropagation();swPsp('+t.id+')" aria-label="Posponer">'+_swClock+'<span>Posponer</span></button>'+
+      '<button type="button" class="sw-btn sw-btn-dis" onclick="event.stopPropagation();swDis('+t.id+')" aria-label="Descartar">'+_swTrash+'<span>Descartar</span></button>'+
+    '</div>'+
+    cardHtml+
+    '</div>';
 }
 
 function toggle(id){
@@ -1503,6 +1524,26 @@ function _removeLocal(id){for(const k of Object.keys(data))data[k]=data[k].filte
 // oculta de cualquier recarga las tareas resueltas que todavia no se borraron en el server
 function _stripResolved(arr){return Array.isArray(arr)?arr.filter(t=>!Object.prototype.hasOwnProperty.call(_pendingResolve,t.id)):(arr||[]);}
 async function _apiDelete(id){try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}}
+
+// ── SWIPE HELPERS ─────────────────────────────────────────────────────────────
+let _swRevealEl=null;
+const SW_REVEAL_W=130,SW_RESOLVE_T=80,SW_REVEAL_T=70;
+function dismissCard(id){
+  const c=document.getElementById('card-'+id);if(!c)return;
+  const w=c.closest('.sw-wrap');(w||c).classList.add('dismissing');
+}
+function closeSwipeReveal(){
+  if(!_swRevealEl)return;
+  const el=_swRevealEl;_swRevealEl=null;
+  el.style.transition='transform .2s cubic-bezier(.34,1.3,.64,1)';
+  el.style.transform='';
+  const bg=el.closest('.sw-wrap')?.querySelector('.sw-ok-bg');
+  if(bg)bg.style.opacity='0';
+  setTimeout(()=>{el.style.transition='';},220);
+}
+function swPsp(id){closeSwipeReveal();setTimeout(()=>openPostpone(null,id),40);}
+function swDis(id){closeSwipeReveal();setTimeout(()=>openFeedback(null,id),40);}
+
 let feedbackId = null;
 
 function openFeedback(e, id) {
@@ -1542,7 +1583,7 @@ async function submitFeedback(reason) {
 
 function resolve(id){
   if(_pendingResolve[id])return;
-  document.getElementById('card-'+id)?.classList.add('dismissing');
+  dismissCard(id);
   _removeLocal(id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
   toastUndo('✅ Resuelto',()=>{const tm=_pendingResolve[id];if(tm)clearTimeout(tm);delete _pendingResolve[id];loadAll();});
@@ -1551,8 +1592,8 @@ function resolve(id){
 }
 function deleteTask(id){
   if(!confirm('¿Eliminar esta tarea?'))return;
-  const c=document.getElementById('card-'+id);
-  if(c){c.classList.add('dismissing');setTimeout(()=>{delTask(id);toast('🗑️ Eliminada');},280);}
+  dismissCard(id);
+  setTimeout(()=>{delTask(id);toast('🗑️ Eliminada');},280);
 }
 
 // ── MODAL: ESC cierra, Enter guarda ──────────────────────────────────────────
@@ -1620,19 +1661,74 @@ document.addEventListener('visibilitychange',()=>{
 
 // ── SWIPE & PULL ──────────────────────────────────────────────────────────────
 const _cnt=document.getElementById('content');
-let _tx=0,_ty=0,_tcid=null,_isPull=false;
+let _tx=0,_ty=0,_tcid=null,_isPull=false,_swDir=null;
 _cnt.addEventListener('touchstart',e=>{
-  _tx=e.touches[0].clientX;_ty=e.touches[0].clientY;
+  _tx=e.touches[0].clientX;_ty=e.touches[0].clientY;_swDir=null;
   const tc=e.target.closest('.tcard');
-  _tcid=(tc&&!e.target.closest('.tc-detail')&&!e.target.closest('button')&&!e.target.closest('a'))
+  _tcid=(tc&&!tc.dataset.noSwipe&&!e.target.closest('.tc-detail')&&!e.target.closest('button')&&!e.target.closest('a'))
     ?parseInt(tc.id.replace('card-',''),10):null;
   _isPull=_cnt.scrollTop===0;
+  // Cerrar reveal si el toque es fuera de los botones
+  if(_swRevealEl&&!e.target.closest('.sw-actions')){closeSwipeReveal();_tcid=null;}
 },{passive:true});
+_cnt.addEventListener('touchmove',e=>{
+  if(!_tcid)return;
+  const dx=e.touches[0].clientX-_tx;
+  const dy=e.touches[0].clientY-_ty;
+  // Determinar dirección en el primer movimiento claro
+  if(!_swDir){
+    if(Math.abs(dx)>8||Math.abs(dy)>8)_swDir=Math.abs(dx)>Math.abs(dy)*.8?'h':'v';
+    return;
+  }
+  if(_swDir==='v')return;
+  e.preventDefault(); // bloquear scroll durante swipe horizontal
+  const card=document.getElementById('card-'+_tcid);if(!card)return;
+  card.style.transition='none';
+  const wrap=card.closest('.sw-wrap');
+  const bg=wrap?.querySelector('.sw-ok-bg');
+  if(dx>0){
+    // Arrastrando derecha → preview verde
+    card.style.transform='translateX('+Math.min(dx,window.innerWidth*.7)+'px)';
+    if(bg)bg.style.opacity=String(Math.min(dx/SW_RESOLVE_T,1));
+  }else{
+    // Arrastrando izquierda → revelar botones
+    card.style.transform='translateX('+Math.max(dx,-SW_REVEAL_W)+'px)';
+    if(bg)bg.style.opacity='0';
+  }
+},{passive:false});
 _cnt.addEventListener('touchend',e=>{
   const dx=e.changedTouches[0].clientX-_tx;
   const dy=e.changedTouches[0].clientY-_ty;
-  if(_isPull&&dy>80&&Math.abs(dx)<50){loadAll();_isPull=false;return;}
-  if(_tcid&&dx<-80&&Math.abs(dy)<60)resolve(_tcid);
+  if(_isPull&&dy>80&&Math.abs(dx)<50){loadAll();_isPull=false;_tcid=null;return;}
+  if(_tcid&&_swDir==='h'){
+    const card=document.getElementById('card-'+_tcid);
+    const id=_tcid;
+    if(card){
+      const wrap=card.closest('.sw-wrap');
+      const bg=wrap?.querySelector('.sw-ok-bg');
+      if(dx>=SW_RESOLVE_T){
+        // Swipe derecha superó umbral → resolver
+        card.style.transition='transform .22s ease';
+        card.style.transform='translateX('+window.innerWidth+'px)';
+        if(bg){bg.style.transition='opacity .22s';bg.style.opacity='1';}
+        _swRevealEl=null;
+        setTimeout(()=>resolve(id),180);
+      }else if(dx<=-SW_REVEAL_T){
+        // Swipe izquierda superó umbral → snap a reveal
+        card.style.transition='transform .2s cubic-bezier(.34,1.3,.64,1)';
+        card.style.transform='translateX(-'+SW_REVEAL_W+'px)';
+        if(bg)bg.style.opacity='0';
+        _swRevealEl=card;
+      }else{
+        // No superó umbral → volver a posición original
+        card.style.transition='transform .2s cubic-bezier(.34,1.3,.64,1)';
+        card.style.transform='';
+        if(bg)bg.style.opacity='0';
+        setTimeout(()=>{if(card)card.style.transition='';},220);
+        _swRevealEl=null;
+      }
+    }
+  }
   _tcid=null;
 },{passive:true});
 
