@@ -114,8 +114,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .content{flex:1;overflow-y:auto;padding:10px 14px max(96px,calc(env(safe-area-inset-bottom) + 88px));background:var(--bg)}
 
 /* SECCIÓN */
-.section-hdr{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
-.section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+.section-hdr{display:flex;align-items:center;gap:8px;margin:16px 0 8px;font-size:11px;font-weight:700;color:var(--cc,var(--muted));text-transform:uppercase;letter-spacing:0.5px}
+.section-hdr:first-child{margin-top:4px}
+.section-hdr::after{content:'';flex:1;height:2px;border-radius:2px;background:var(--ccbd,var(--border))}
 
 /* VISTA HOY — encabezados de bucket con semáforo */
 .hoy-hdr{display:flex;align-items:center;gap:7px;margin:14px 0 7px;font-size:12px;font-weight:800;letter-spacing:.2px}
@@ -146,12 +147,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cg-cnt{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted2)}
 
 /* TASK CARD */
-.tcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:5px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
-.tcard.pr1{border-left:3px solid var(--p1)}
-.tcard.pr2{border-left:3px solid var(--p2)}
-.tcard.pr3{border-left:3px solid var(--p3)}
-.tcard.pr-sin{border-left:3px solid var(--purple)}
-.tcard.pr-mio{border-left:3px solid var(--orange)}
+/* fondo tenue + acento del color de la empresa; prioridad va en el punto y el pill */
+.tcard{background:var(--ccb,var(--card));border:1px solid var(--ccbd,var(--border));border-left:4px solid var(--cc,#cbd5e1);border-radius:12px;margin-bottom:6px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
 .tc-top{display:flex;align-items:flex-start;gap:10px;padding:11px 13px}
 .tc-body{flex:1;min-width:0}
 .tc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
@@ -1246,7 +1243,7 @@ function renderCard(t){
   const headline=esc(t.task||t.preview||'');
   const compTag=isMio?'<span class="tc-tag-comp">Compromiso</span>':'';
   const hasContext=t.preview&&t.task&&t.preview.trim()!==t.task.trim();
-  return '<div class="tcard '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
+  return '<div class="tcard '+companyClass(t.company)+' '+pc.card+'" id="card-'+t.id+'" onclick="toggle('+t.id+')" role="article">'+
     '<div class="tc-top">'+
     '<div class="prio-dot '+pc.dot+'" aria-hidden="true"></div>'+
     '<div class="tc-body">'+
