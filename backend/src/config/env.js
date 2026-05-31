@@ -14,4 +14,7 @@ module.exports = {
   WAHA_URL: process.env.WAHA_URL || 'http://localhost:3000',
   WAHA_SESSION: process.env.WAHA_SESSION || 'default',
   MY_WA_NUMBER: process.env.MY_WA_NUMBER || '17542365652@c.us',
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
+  VAPID_EMAIL: process.env.VAPID_EMAIL || 'mailto:admin@pendienteai.app',
 };

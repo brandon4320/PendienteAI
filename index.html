@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#111827">
+<link rel="manifest" href="/manifest.json">
 <title>PendienteAI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -513,6 +514,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     <label class="modal-label" for="setWeeklyTime">Hora del resumen semanal</label>
     <input type="time" class="modal-input" id="setWeeklyTime" value="18:00">
     <button type="button" class="btn-keep" style="width:100%;margin-bottom:10px" onclick="testDigest()">Enviar resumen de prueba a mi WhatsApp</button>
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Notificaciones push</div>
+      <div id="pushPermNote" style="display:none;padding:8px 10px;border-radius:var(--r-sm);font-size:11px;line-height:1.5;margin-bottom:10px"></div>
+      <label class="set-row"><span>Recordatorio mañana</span><input type="checkbox" id="setPushMorning"></label>
+      <label class="modal-label" for="setPushMorningTime">Hora del recordatorio mañana</label>
+      <input type="time" class="modal-input" id="setPushMorningTime" value="09:00">
+      <label class="set-row"><span>Recordatorio tarde</span><input type="checkbox" id="setPushAfternoon"></label>
+      <label class="modal-label" for="setPushAfternoonTime">Hora del recordatorio tarde</label>
+      <input type="time" class="modal-input" id="setPushAfternoonTime" value="15:00">
+      <button type="button" class="btn-keep" id="pushTestBtn" style="width:100%;margin-bottom:10px" onclick="testPush()">Enviar notificación de prueba</button>
+    </div>
     <div class="modal-actions">
       <button type="button" class="btn-cancel" onclick="closeSettings()">Cerrar</button>
       <button type="button" class="btn-save" onclick="saveSettings()">Guardar</button>
@@ -1833,7 +1845,12 @@ async function openSettings(){
     document.getElementById('setDigestTime').value=s.digestTime||'08:00';
     document.getElementById('setWeekly').checked=!!s.weeklyEnabled;
     document.getElementById('setWeeklyTime').value=s.weeklyTime||'18:00';
+    document.getElementById('setPushMorning').checked=!!s.pushMorningEnabled;
+    document.getElementById('setPushMorningTime').value=s.pushMorningTime||'09:00';
+    document.getElementById('setPushAfternoon').checked=!!s.pushAfternoonEnabled;
+    document.getElementById('setPushAfternoonTime').value=s.pushAfternoonTime||'15:00';
   }catch(e){if(e.message==='401')return;}
+  initPushUI();
   document.getElementById('settingsModal').classList.add('show');
 }
 function closeSettings(){document.getElementById('settingsModal').classList.remove('show');}
@@ -1843,7 +1860,17 @@ async function saveSettings(){
     digestTime:document.getElementById('setDigestTime').value||'08:00',
     weeklyEnabled:document.getElementById('setWeekly').checked,
     weeklyTime:document.getElementById('setWeeklyTime').value||'18:00',
+    pushMorningEnabled:document.getElementById('setPushMorning').checked,
+    pushMorningTime:document.getElementById('setPushMorningTime').value||'09:00',
+    pushAfternoonEnabled:document.getElementById('setPushAfternoon').checked,
+    pushAfternoonTime:document.getElementById('setPushAfternoonTime').value||'15:00',
   };
+  if(body.pushMorningEnabled||body.pushAfternoonEnabled){
+    const ok=await ensurePushSubscription();
+    if(!ok&&(body.pushMorningEnabled||body.pushAfternoonEnabled)){
+      toast('Permiso de notificaciones denegado');return;
+    }
+  }
   try{await apiFetch(API+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});closeSettings();toast('Avisos guardados');}
   catch(e){if(e.message!=='401')toast('Error al guardar');}
 }
@@ -1851,6 +1878,69 @@ async function testDigest(){
   toast('Enviando…');
   try{const r=await apiFetch(API+'/digest/test',{method:'POST'});if(r.ok)toast('📲 Te lo mandé al WhatsApp');else toast('Error al enviar');}
   catch(e){if(e.message!=='401')toast('Error al enviar');}
+}
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+function urlB64ToUint8(b64){
+  const pad='='.repeat((4-b64.length%4)%4);
+  const raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+function ab2b64(buf){return btoa(String.fromCharCode(...new Uint8Array(buf)));}
+
+function initPushUI(){
+  const note=document.getElementById('pushPermNote');if(!note)return;
+  const supported='serviceWorker'in navigator&&'PushManager'in window;
+  if(!supported){
+    note.style.display='';note.style.background='var(--amber-bg)';note.style.color='var(--amber)';note.style.border='1px solid var(--amber-b)';
+    note.textContent='Requiere la app instalada en pantalla de inicio (iOS 16.4+) o Chrome/Edge en Android.';
+    ['setPushMorning','setPushAfternoon'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=true;});
+    return;
+  }
+  const perm=Notification.permission;
+  if(perm==='denied'){
+    note.style.display='';note.style.background='var(--red-bg)';note.style.color='var(--red)';note.style.border='1px solid var(--red-b)';
+    note.textContent='Permisos bloqueados. Habilitálos en Configuracion del sistema > Notificaciones.';
+  }else if(perm==='default'){
+    note.style.display='';note.style.background='var(--blue-bg)';note.style.color='var(--blue)';note.style.border='1px solid var(--blue-b)';
+    note.textContent='Al guardar con algún recordatorio activo, el sistema pedirá permiso para enviar notificaciones.';
+  }else{
+    note.style.display='none';
+  }
+}
+
+async function ensurePushSubscription(){
+  if(!('serviceWorker'in navigator&&'PushManager'in window))return false;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    if(Notification.permission==='default'){
+      const p=await Notification.requestPermission();
+      if(p!=='granted')return false;
+    }
+    if(Notification.permission!=='granted')return false;
+    const kr=await apiFetch(API+'/push/vapid-key');
+    const{key}=await kr.json();
+    if(!key)return false;
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(key)});
+    await apiFetch(API+'/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({endpoint:sub.endpoint,keys:{auth:ab2b64(sub.getKey('auth')),p256dh:ab2b64(sub.getKey('p256dh'))}})});
+    return true;
+  }catch(e){console.warn('Push sub error:',e);return false;}
+}
+
+async function testPush(){
+  const ok=await ensurePushSubscription();
+  if(!ok){toast('Activá los permisos de notificacion primero');return;}
+  toast('Enviando…');
+  try{
+    const r=await apiFetch(API+'/push/test',{method:'POST'});
+    if(r.ok)toast('Notificacion de prueba enviada');else toast('Error al enviar');
+  }catch(e){if(e.message!=='401')toast('Error: '+e.message);}
+}
+
+// Registrar Service Worker al cargar
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('SW register:',e));
 }
 
 function initApp(){

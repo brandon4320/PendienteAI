@@ -31,6 +31,7 @@ const taskRouter = createTaskRoutes({ taskController });
 
 const express = require('express');
 const Groq = require('groq-sdk');
+const webpush = require('web-push');
 const path = require('path');
 const fsAsync = require('fs').promises;
 const fsSync = require('fs');
@@ -42,6 +43,37 @@ app.use(express.json({ limit: '5mb' }));
 const API_TOKEN = env.API_TOKEN;
 if (!API_TOKEN) {
   log.error('[STARTUP] ADVERTENCIA: API_TOKEN no está en .env — todas las peticiones autenticadas serán rechazadas');
+}
+
+// ─── WEB PUSH / VAPID ────────────────────────────────────────────────────────
+const VAPID_PUBLIC = env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE = env.VAPID_PRIVATE_KEY;
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails(env.VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
+  log.info('[PUSH] VAPID configurado OK');
+} else {
+  log.warn('[PUSH] VAPID keys no configuradas — notificaciones push deshabilitadas');
+}
+
+async function sendPushToAll(payload) {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
+  const subs = db.prepare('SELECT * FROM push_subscriptions').all();
+  if (!subs.length) return;
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { auth: sub.keys_auth, p256dh: sub.keys_p256dh } },
+        JSON.stringify(payload),
+        { TTL: 86400 }
+      );
+    } catch (e) {
+      log.warn('[PUSH] Error enviando sub #' + sub.id + ':', e.statusCode || e.message);
+      if (e.statusCode === 410 || e.statusCode === 404) {
+        db.prepare('DELETE FROM push_subscriptions WHERE id=?').run(sub.id);
+        log.info('[PUSH] Subscription expirada eliminada, id:', sub.id);
+      }
+    }
+  }
 }
 
 function authMiddleware(req, res, next) {
@@ -942,7 +974,7 @@ async function sendDailyDigest() { await sendWAMessage(MY_WA_NUMBER, buildDailyD
 async function sendWeeklyDigest() { await sendWAMessage(MY_WA_NUMBER, buildWeeklyDigest()); console.log('[DIGEST] semanal enviado'); }
 
 // Scheduler: chequea la hora AR cada minuto
-let _lastDaily = null, _lastWeekly = null;
+let _lastDaily = null, _lastWeekly = null, _lastPushMorning = null, _lastPushAfternoon = null;
 setInterval(() => {
   try {
     const dateStr = todayISO_AR();
@@ -954,7 +986,29 @@ setInterval(() => {
     if (getSetting('weekly_enabled', '1') === '1' && wd === 'Sun' && hhmm === getSetting('weekly_time', '18:00') && _lastWeekly !== dateStr) {
       _lastWeekly = dateStr; sendWeeklyDigest().catch(e => console.error('[DIGEST]', e.message));
     }
-  } catch (e) { console.error('[DIGEST] sched', e.message); }
+    // Push notifications
+    if (getSetting('push_morning_enabled', '1') === '1' && hhmm === getSetting('push_morning_time', '09:00') && _lastPushMorning !== dateStr) {
+      _lastPushMorning = dateStr;
+      const pending = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get().n;
+      const overdue = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending' AND due_date < ?").get(dateStr).n;
+      const dueToday = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending' AND due_date=?").get(dateStr).n;
+      const body = pending === 0 ? 'No tenes tareas pendientes' :
+        ['Tenes ' + pending + (pending === 1 ? ' tarea' : ' tareas'),
+          overdue > 0 ? overdue + (overdue === 1 ? ' vencida' : ' vencidas') : '',
+          dueToday > 0 ? dueToday + ' vencen hoy' : '']
+        .filter(Boolean).join(' · ');
+      sendPushToAll({ title: 'PendienteAI', body, tag: 'morning', url: 'https://pendienteia.vercel.app' })
+        .catch(e => log.error('[PUSH] morning:', e.message));
+    }
+    if (getSetting('push_afternoon_enabled', '0') === '1' && hhmm === getSetting('push_afternoon_time', '15:00') && _lastPushAfternoon !== dateStr) {
+      _lastPushAfternoon = dateStr;
+      const pending = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status='pending'").get().n;
+      if (pending > 0) {
+        sendPushToAll({ title: 'PendienteAI', body: pending + (pending === 1 ? ' tarea pendiente' : ' tareas pendientes'), tag: 'afternoon', url: 'https://pendienteia.vercel.app' })
+          .catch(e => log.error('[PUSH] afternoon:', e.message));
+      }
+    }
+  } catch (e) { console.error('[SCHED]', e.message); }
 }, 60 * 1000);
 
 app.get('/settings', (req, res) => {
@@ -963,6 +1017,10 @@ app.get('/settings', (req, res) => {
     digestTime: getSetting('digest_time', '08:00'),
     weeklyEnabled: getSetting('weekly_enabled', '1') === '1',
     weeklyTime: getSetting('weekly_time', '18:00'),
+    pushMorningEnabled: getSetting('push_morning_enabled', '1') === '1',
+    pushMorningTime: getSetting('push_morning_time', '09:00'),
+    pushAfternoonEnabled: getSetting('push_afternoon_enabled', '0') === '1',
+    pushAfternoonTime: getSetting('push_afternoon_time', '15:00'),
   });
 });
 app.patch('/settings', (req, res) => {
@@ -971,7 +1029,37 @@ app.patch('/settings', (req, res) => {
   if (typeof b.weeklyEnabled === 'boolean') setSetting('weekly_enabled', b.weeklyEnabled ? '1' : '0');
   if (/^\d{2}:\d{2}$/.test(b.digestTime || '')) setSetting('digest_time', b.digestTime);
   if (/^\d{2}:\d{2}$/.test(b.weeklyTime || '')) setSetting('weekly_time', b.weeklyTime);
+  if (typeof b.pushMorningEnabled === 'boolean') setSetting('push_morning_enabled', b.pushMorningEnabled ? '1' : '0');
+  if (typeof b.pushAfternoonEnabled === 'boolean') setSetting('push_afternoon_enabled', b.pushAfternoonEnabled ? '1' : '0');
+  if (/^\d{2}:\d{2}$/.test(b.pushMorningTime || '')) setSetting('push_morning_time', b.pushMorningTime);
+  if (/^\d{2}:\d{2}$/.test(b.pushAfternoonTime || '')) setSetting('push_afternoon_time', b.pushAfternoonTime);
   res.json({ ok: true });
+});
+
+// ─── PUSH ENDPOINTS ──────────────────────────────────────────────────────────
+app.get('/push/vapid-key', (req, res) => {
+  res.json({ key: VAPID_PUBLIC || null });
+});
+app.post('/push/subscribe', (req, res) => {
+  const { endpoint, keys, label } = req.body || {};
+  if (!endpoint || !keys?.auth || !keys?.p256dh) return res.status(400).json({ error: 'subscription invalida' });
+  db.prepare('INSERT OR REPLACE INTO push_subscriptions (endpoint,keys_auth,keys_p256dh,device_label) VALUES (?,?,?,?)')
+    .run(endpoint, keys.auth, keys.p256dh, label || null);
+  log.info('[PUSH] Suscripcion registrada');
+  res.json({ ok: true });
+});
+app.delete('/push/subscribe', (req, res) => {
+  const { endpoint } = req.body || {};
+  if (endpoint) { db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').run(endpoint); log.info('[PUSH] Suscripcion eliminada'); }
+  res.json({ ok: true });
+});
+app.post('/push/test', async (req, res) => {
+  const n = db.prepare('SELECT COUNT(*) as n FROM push_subscriptions').get().n;
+  if (!n) return res.status(400).json({ error: 'sin suscripciones' });
+  try {
+    await sendPushToAll({ title: 'PendienteAI', body: 'Notificacion de prueba — todo funcionando correctamente', tag: 'test', url: 'https://pendienteia.vercel.app' });
+    res.json({ ok: true, subs: n });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/digest/test', async (req, res) => {
   const text = buildDailyDigest();

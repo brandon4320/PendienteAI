@@ -80,6 +80,16 @@ function runMigrations(db) {
   const rcols = db.pragma('table_info(recurring)').map(c => c.name);
   if (!rcols.includes('interval')) db.exec("ALTER TABLE recurring ADD COLUMN interval INTEGER DEFAULT 1");
   db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      endpoint TEXT UNIQUE NOT NULL,
+      keys_auth TEXT NOT NULL,
+      keys_p256dh TEXT NOT NULL,
+      device_label TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
   // Normalización inicial: tareas sin texto
   db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();

@@ -1,0 +1,11 @@
+{
+  "name": "PendienteAI",
+  "short_name": "PendienteAI",
+  "description": "Gestión de tareas con IA para WhatsApp",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "scope": "/",
+  "background_color": "#f5f7fa",
+  "theme_color": "#111827"
+}
