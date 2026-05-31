@@ -23,6 +23,9 @@
   --blue:#2563eb;--blue-bg:#eff6ff;--blue-b:#bfdbfe;
   --purple:#7c3aed;--purple-bg:#f5f3ff;--purple-b:#ddd6fe;
   --orange:#ea580c;--orange-bg:#fff7ed;--orange-b:#fed7aa;
+  --sky:#0284c7;--sky-bg:#f0f9ff;--sky-b:#bae6fd;
+  --yellow:#ca8a04;--yellow-bg:#fefce8;--yellow-b:#fef08a;
+  --pink:#db2777;--pink-bg:#fdf2f8;--pink-b:#fbcfe8;
   --font:'Inter',sans-serif;--mono:'DM Mono',monospace;
   --p1:#dc2626;--p1-bg:#fef2f2;--p1-b:#fecaca;
   --p2:#d97706;--p2-bg:#fffbeb;--p2-b:#fde68a;
@@ -87,6 +90,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .comp-red{--cc:var(--red);--ccb:var(--red-bg);--ccbd:var(--red-b)}
 .comp-amber{--cc:var(--amber);--ccb:var(--amber-bg);--ccbd:var(--amber-b)}
 .comp-slate{--cc:#475569;--ccb:#f1f5f9;--ccbd:#e2e8f0}
+.comp-sky{--cc:var(--sky);--ccb:var(--sky-bg);--ccbd:var(--sky-b)}
+.comp-yellow{--cc:var(--yellow);--ccb:var(--yellow-bg);--ccbd:var(--yellow-b)}
+.comp-pink{--cc:var(--pink);--ccb:var(--pink-bg);--ccbd:var(--pink-b)}
 
 /* FILA DE EMPRESAS (scroll horizontal) */
 .comp-pills{display:flex;gap:6px;padding:8px 14px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -557,13 +563,13 @@ const TASK_VIEWS=['hoy','todo','agenda']; // vistas que usan el pool unificado d
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
 const COMPANY_ORDER=['financiera','serviwhite','tecnophos','adc','transtide','svn','personal'];
 const COMPANY_META={
-  financiera:{name:'Financiera',color:'green'},
-  serviwhite:{name:'Serviwhite',color:'blue'},
-  tecnophos:{name:'Tecnophos',color:'purple'},
-  adc:{name:'ADC',color:'orange'},
-  transtide:{name:'Transtide',color:'red'},
-  svn:{name:'SVN',color:'amber'},
-  personal:{name:'Personal',color:'slate'},
+  financiera:{name:'Financiera',color:'red'},
+  serviwhite:{name:'Serviwhite',color:'sky'},
+  tecnophos:{name:'Tecnophos',color:'blue'},
+  adc:{name:'ADC',color:'yellow'},
+  transtide:{name:'Transtide',color:'orange'},
+  svn:{name:'SVN',color:'purple'},
+  personal:{name:'Personal',color:'pink'},
 };
 function companyMeta(key){return COMPANY_META[key]||{name:'Sin asignar',color:'slate'};}
 function companyClass(key){return 'comp-'+companyMeta(key).color;}
