@@ -141,7 +141,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .hoy-cpill .hoy-cn{font-family:var(--mono)}
 
 /* GRUPO */
-.cgroup{margin-bottom:10px}
+.cgroup{margin-bottom:10px;content-visibility:auto;contain-intrinsic-size:auto 160px}
 .cg-hdr{display:flex;align-items:center;gap:8px;padding:4px 2px}
 .cg-av{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:var(--mono)}
 .av-w{background:var(--blue-bg);color:var(--blue)}
@@ -679,9 +679,9 @@ async function loadAll(){
       apiFetch(API+'/tasks?type=sin_responder'),
       apiFetch(API+'/tasks?type=mio'),
     ]);
-    data.pendiente=await r1.json();
-    data.sin_responder=await r2.json();
-    data.mio=await r3.json();
+    data.pendiente=_stripResolved(await r1.json());
+    data.sin_responder=_stripResolved(await r2.json());
+    data.mio=_stripResolved(await r3.json());
     setConn(true);
     updateBadges();
     renderTasks();
@@ -699,7 +699,7 @@ async function loadBandeja(type){
   icon.classList.add('spin');
   try{
     const r=await apiFetch(API+'/tasks?type='+encodeURIComponent(type));
-    data[type]=await r.json();
+    data[type]=_stripResolved(await r.json());
     setConn(true);
     updateBadges();
     const affects=(type==='sin_responder')?(view==='sinresp'):(TASK_VIEWS.includes(view));
@@ -1276,6 +1276,8 @@ function toggle(id){
 
 const _pendingResolve={};
 function _removeLocal(id){for(const k of Object.keys(data))data[k]=data[k].filter(t=>t.id!=id);}
+// oculta de cualquier recarga las tareas resueltas que todavia no se borraron en el server
+function _stripResolved(arr){return Array.isArray(arr)?arr.filter(t=>!Object.prototype.hasOwnProperty.call(_pendingResolve,t.id)):(arr||[]);}
 async function _apiDelete(id){try{await apiFetch(API+'/tasks/'+id,{method:'DELETE'});}catch(e){}}
 let feedbackId = null;
 
@@ -1319,8 +1321,9 @@ function resolve(id){
   document.getElementById('card-'+id)?.classList.add('dismissing');
   _removeLocal(id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
-  toastUndo('✅ Resuelto',()=>{clearTimeout(_pendingResolve[id]);delete _pendingResolve[id];loadAll();});
-  _pendingResolve[id]=setTimeout(()=>{delete _pendingResolve[id];_apiDelete(id);},4200);
+  toastUndo('✅ Resuelto',()=>{const tm=_pendingResolve[id];if(tm)clearTimeout(tm);delete _pendingResolve[id];loadAll();});
+  // se mantiene en _pendingResolve hasta confirmar el DELETE en el server, asi ningun reload (SSE) la trae de vuelta
+  _pendingResolve[id]=setTimeout(async()=>{await _apiDelete(id);delete _pendingResolve[id];},4200);
 }
 function deleteTask(id){
   if(!confirm('¿Eliminar esta tarea?'))return;
