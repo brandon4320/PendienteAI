@@ -23,7 +23,9 @@ module.exports = {
   QUEUE_DELAY_MS: 2000,
 
   // Modelos Groq
-  GROQ_TEXT_MODEL: 'llama-3.3-70b-versatile',
+  // llama-3.1-8b-instant: 500k tokens/dia (free) — usado para análisis masivo de WhatsApp
+  // llama-3.3-70b-versatile: 100k tokens/dia (free) — reservado para bot/commands (baja frecuencia)
+  GROQ_TEXT_MODEL: 'llama-3.1-8b-instant',
   GROQ_AUDIO_MODEL: 'whisper-large-v3-turbo',
 
   // Número @lid de Serviwhite (self-routing del bot)
