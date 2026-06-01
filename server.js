@@ -128,6 +128,8 @@ function getCachedCompany(contact) {
 function cleanOldData() {
   taskRepo.deleteOldResolved();
   db.prepare("DELETE FROM conv_history WHERE created_at < datetime('now','-1 day')").run();
+  // Limpiar completions de hábitos con más de 60 días
+  db.prepare("DELETE FROM daily_completions WHERE date < date('now','-60 days')").run();
 }
 cleanOldData();
 
@@ -975,6 +977,7 @@ async function sendWeeklyDigest() { await sendWAMessage(MY_WA_NUMBER, buildWeekl
 
 // Scheduler: chequea la hora AR cada minuto
 let _lastDaily = null, _lastWeekly = null, _lastPushMorning = null, _lastPushAfternoon = null;
+const _habitPushSent = new Set(); // key: `${habitId}_${date}_${diffMinutes}`
 setInterval(() => {
   try {
     const dateStr = todayISO_AR();
@@ -1006,6 +1009,32 @@ setInterval(() => {
       if (pending > 0) {
         sendPushToAll({ title: 'PendienteAI', body: pending + (pending === 1 ? ' tarea pendiente' : ' tareas pendientes'), tag: 'afternoon', url: 'https://pendienteia.vercel.app' })
           .catch(e => log.error('[PUSH] afternoon:', e.message));
+      }
+    }
+    // Habitos diarios: notificar en el horario y cada hora siguiente hasta completar
+    {
+      const [nowH, nowM] = hhmm.split(':').map(Number);
+      const nowTotal = nowH * 60 + nowM;
+      const habits = db.prepare("SELECT * FROM daily_habits WHERE active=1 AND notify_time IS NOT NULL").all();
+      for (const h of habits) {
+        const [hH, hM] = h.notify_time.split(':').map(Number);
+        const habitTotal = hH * 60 + hM;
+        const diff = nowTotal - habitTotal;
+        if (diff < 0) continue;           // aun no llego la hora
+        if (diff % 60 !== 0) continue;    // solo en punto exacto (0, 60, 120 min despues)
+        const pushKey = h.id + '_' + dateStr + '_' + diff;
+        if (_habitPushSent.has(pushKey)) continue;
+        const done = db.prepare('SELECT id FROM daily_completions WHERE habit_id=? AND date=?').get(h.id, dateStr);
+        if (done) continue;
+        _habitPushSent.add(pushKey);
+        if (_habitPushSent.size > 500) _habitPushSent.clear();
+        sendPushToAll({
+          title: diff === 0 ? 'Rutina diaria' : 'Rutina pendiente',
+          body: h.title,
+          tag: 'habit-' + h.id,
+          renotify: true,
+          url: 'https://pendienteia.vercel.app',
+        }).catch(e => log.error('[PUSH] habit:', e.message));
       }
     }
   } catch (e) { console.error('[SCHED]', e.message); }
@@ -1068,4 +1097,60 @@ app.post('/digest/test', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.listen(env.PORT, () => log.info('PendienteAI v6.3 - vista Hoy + posponer a fecha en puerto', env.PORT));
+// ─── HÁBITOS DIARIOS (checklist de rutina) ──────────────────────────────────
+app.get('/habits', (req, res) => {
+  const today = todayISO_AR();
+  const habits = db.prepare(`
+    SELECT h.*, CASE WHEN dc.id IS NOT NULL THEN 1 ELSE 0 END as done
+    FROM daily_habits h
+    LEFT JOIN daily_completions dc ON dc.habit_id=h.id AND dc.date=?
+    WHERE h.active=1
+    ORDER BY h.notify_time IS NULL, h.notify_time, h.sort_order, h.id
+  `).all(today);
+  res.json(habits);
+});
+
+app.post('/habits', (req, res) => {
+  const { title, notify_time } = req.body || {};
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'title requerido' });
+  if (notify_time && !/^\d{2}:\d{2}$/.test(notify_time)) return res.status(400).json({ error: 'formato de hora invalido' });
+  const r = db.prepare('INSERT INTO daily_habits (title, notify_time) VALUES (?,?)').run(String(title).trim(), notify_time || null);
+  res.json({ id: r.lastInsertRowid });
+});
+
+app.patch('/habits/:id', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id invalido' });
+  const { title, notify_time } = req.body || {};
+  if (title !== undefined) db.prepare('UPDATE daily_habits SET title=? WHERE id=?').run(String(title).trim(), id);
+  if (notify_time !== undefined) {
+    if (notify_time && !/^\d{2}:\d{2}$/.test(notify_time)) return res.status(400).json({ error: 'formato de hora invalido' });
+    db.prepare('UPDATE daily_habits SET notify_time=? WHERE id=?').run(notify_time || null, id);
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/habits/:id', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id invalido' });
+  db.prepare('UPDATE daily_habits SET active=0 WHERE id=?').run(id);
+  res.json({ ok: true });
+});
+
+app.post('/habits/:id/complete', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id invalido' });
+  const today = todayISO_AR();
+  try { db.prepare('INSERT INTO daily_completions (habit_id, date) VALUES (?,?)').run(id, today); } catch(e) { /* ya completado */ }
+  res.json({ ok: true });
+});
+
+app.delete('/habits/:id/complete', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id invalido' });
+  const today = todayISO_AR();
+  db.prepare('DELETE FROM daily_completions WHERE habit_id=? AND date=?').run(id, today);
+  res.json({ ok: true });
+});
+
+app.listen(env.PORT, () => log.info('PendienteAI v6.4 - habitos diarios en puerto', env.PORT));

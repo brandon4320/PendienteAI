@@ -90,6 +90,24 @@ function runMigrations(db) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // Hábitos diarios (checklist)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_habits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      notify_time TEXT,
+      active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS daily_completions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      habit_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(habit_id, date)
+    );
+  `);
 
   // Normalización inicial: tareas sin texto
   db.prepare("UPDATE tasks SET task='Revisar mensaje' WHERE task IS NULL OR task=''").run();

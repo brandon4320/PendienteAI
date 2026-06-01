@@ -263,6 +263,34 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .modal-actions{display:flex;gap:8px}
 .btn-cancel{flex:1;padding:11px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;min-height:44px}
 .btn-save{flex:1;padding:11px;background:var(--green);border:none;color:white;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;min-height:44px}
+/* ─── RUTINA — checklist diario ──────────────────────────────────────────── */
+.habits-top{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
+.habits-top-lbl{font-size:13px;font-weight:600;color:var(--muted)}
+.habits-top-score{font-size:13px;font-weight:700;color:var(--green);font-family:var(--mono)}
+.habits-bar-wrap{margin:0 16px 12px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.habits-bar{height:100%;background:var(--green);border-radius:2px;transition:width .35s ease}
+.habit-list{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--card)}
+.habit-item{display:flex;align-items:center;gap:13px;padding:14px 16px;border-bottom:1px solid var(--border);position:relative}
+.habit-item:last-child{border-bottom:none}
+.habit-check{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .22s cubic-bezier(.34,1.3,.64,1);-webkit-tap-highlight-color:transparent}
+.habit-item.done .habit-check{border-color:var(--green);background:var(--green)}
+.habit-ck-ico{opacity:0;transform:scale(0);transition:all .22s cubic-bezier(.34,1.3,.64,1)}
+.habit-item.done .habit-ck-ico{opacity:1;transform:scale(1)}
+.habit-body{flex:1;min-width:0;cursor:pointer}
+.habit-ttl{font-size:15px;font-weight:600;line-height:1.3;color:var(--text);transition:color .18s}
+.habit-item.done .habit-ttl{color:var(--muted2);text-decoration:line-through}
+.habit-time-lbl{display:flex;align-items:center;gap:3px;font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:3px}
+.habit-edit-btn{flex-shrink:0;width:34px;height:34px;border:none;background:transparent;color:var(--muted2);cursor:pointer;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.habit-add-row{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--card);border-top:1px solid var(--border);color:var(--green);font-size:14px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.habits-all-done{margin:16px;padding:20px 16px;background:var(--green-bg);border:1.5px solid var(--green-b);border-radius:var(--r-lg);text-align:center}
+.habits-all-done-ttl{font-size:17px;font-weight:800;color:var(--green);margin-bottom:4px}
+.habits-all-done-sub{font-size:12px;color:var(--green);opacity:.8}
+.habits-empty{padding:50px 24px;text-align:center}
+.habits-empty svg{opacity:.25;margin-bottom:16px}
+.habits-empty .ev-ttl{font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text)}
+.habits-empty .ev-sub{font-size:13px;color:var(--muted)}
+/* Modal hábito — usa los mismos .modal, .modal-label, .modal-input, .modal-actions */
+.habit-del-btn{width:100%;padding:10px;margin-top:6px;background:transparent;border:1px solid var(--red-b);color:var(--red);border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;min-height:40px}
 .tcard.dismissing,.sw-wrap.dismissing{animation:out .28s ease forwards;pointer-events:none}
 @keyframes out{to{opacity:0;max-height:0;margin:0;padding:0;border:none}}
 /* SWIPE WRAPPER */
@@ -384,6 +412,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
       <button type="button" class="bt" data-tab="recur" onclick="setView('recur')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Repetir
       </button>
+      <button type="button" class="bt" data-tab="habits" onclick="setView('habits')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Rutina<span class="bcount orange" id="bc-hab" style="display:none">0</span>
+      </button>
     </div>
   </div>
 
@@ -430,6 +461,23 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
       <input type="date" id="postponeDate" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none" onchange="doPostpone(this.value)">
     </div>
     <button type="button" class="mf-cancel" onclick="closePostpone()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL HÁBITO (crear / editar) -->
+<div class="modal-overlay" id="habitModal" role="dialog" aria-modal="true" aria-label="Hábito diario" onclick="closeHabitModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px;vertical-align:-2px"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg><span id="habitModalTtl">Nueva rutina</span></div>
+    <label class="modal-label" for="habitTitleIn">Nombre</label>
+    <input type="text" class="modal-input" id="habitTitleIn" maxlength="120" placeholder="ej: Tomar pastilla neurologo" />
+    <label class="modal-label" for="habitTimeIn">Hora de notificación <span style="font-weight:400;color:var(--muted2)">(opcional)</span></label>
+    <input type="time" class="modal-input" id="habitTimeIn" />
+    <p style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:14px;line-height:1.5">Si configurás una hora, recibirás una notificación push. Si no la marcás como completada, se repite cada 1 hora hasta fin del día.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="closeHabitModal()">Cancelar</button>
+      <button type="button" class="btn-save" onclick="saveHabit()">Guardar</button>
+    </div>
+    <button type="button" class="habit-del-btn" id="habitDelBtn" onclick="deleteHabit()" style="display:none">Eliminar rutina</button>
   </div>
 </div>
 
@@ -613,7 +661,7 @@ const localCache=(()=>{
 
 // ── OFFLINE QUEUE ────────────────────────────────────────────────────────────
 const _OQ_KEY='pai_offline_queue';
-const _OQ_SKIP=['/bot/','/push/','/recurring','/stream','/health','/settings'];
+const _OQ_SKIP=['/bot/','/push/','/recurring','/habits','/stream','/health','/settings'];
 function _oqPush(item){
   try{
     const q=JSON.parse(localStorage.getItem(_OQ_KEY)||'[]');
@@ -661,7 +709,7 @@ function apiFetch(url,opts={}){
 
 let data={pendiente:[],sin_responder:[],mio:[],inbox:[]};
 let expanded=null,companyFilter='all';
-let view='hoy'; // hoy | todo | agenda | recur | sinresp | inbox
+let view='hoy'; // hoy | todo | agenda | recur | sinresp | inbox | habits
 let inboxLoading=false,inboxError=false;
 const TASK_VIEWS=['hoy','todo','agenda']; // vistas que usan el pool unificado de tareas
 
@@ -737,8 +785,9 @@ function setView(v){
   // mostrar/ocultar filtros según la vista
   const showFilters=TASK_VIEWS.includes(v);
   document.getElementById('compPills').style.display=showFilters?'':'none';
-  document.querySelector('.toolbar').style.display=(v==='sinresp'||v==='recur'||v==='inbox')?'none':'';
+  document.querySelector('.toolbar').style.display=(v==='sinresp'||v==='recur'||v==='inbox'||v==='habits')?'none':'';
   if(v==='recur'){loadRecurring();return;}
+  if(v==='habits'){loadHabits();return;}
   if(v==='inbox'){
     // Mostrar loading inmediatamente ANTES del fetch — nunca queda contenido de Hoy debajo del ícono Inbox
     inboxLoading=true; inboxError=false;
@@ -1376,6 +1425,7 @@ function renderTasks(){
   if(view==='recur'){renderRecurView(el);return;}
   if(view==='sinresp'){renderSinResp(el);return;}
   if(view==='inbox'){renderInbox(el);return;}
+  if(view==='habits'){renderHabitsView(el);return;}
   // view==='todo' → pool unificado agrupado por empresa
   const filtered=getFiltered();
   if(!filtered.length){
@@ -1696,6 +1746,7 @@ document.addEventListener('keydown',e=>{
   else if(document.getElementById('settingsModal').classList.contains('show'))closeSettings();
   else if(document.getElementById('quickAdd').classList.contains('show'))closeQuickAdd();
   else if(document.getElementById('feedbackModal').classList.contains('show'))closeFeedback();
+  else if(document.getElementById('habitModal').classList.contains('show'))closeHabitModal();
 });
 document.getElementById('editText').addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault();saveEdit();}
@@ -1823,6 +1874,141 @@ _cnt.addEventListener('touchend',e=>{
   }
   _tcid=null;
 },{passive:true});
+
+// ── RUTINA — HÁBITOS DIARIOS ─────────────────────────────────────────────────
+let habitData=[];
+let _habitEditId=null;
+
+async function loadHabits(){
+  try{
+    const r=await apiFetch(API+'/habits');
+    habitData=await r.json();
+  }catch(e){if(e.message==='401')return;habitData=[];}
+  updateHabitBadge();
+  if(view==='habits')renderHabitsView(document.getElementById('content'));
+}
+
+function updateHabitBadge(){
+  const pending=habitData.filter(h=>!h.done).length;
+  const el=document.getElementById('bc-hab');
+  if(el){el.textContent=pending;el.style.display=pending>0?'':'none';}
+}
+
+function renderHabitsView(el){
+  const total=habitData.length;
+  const done=habitData.filter(h=>h.done).length;
+  const pct=total?Math.round(done/total*100):0;
+  const checkIco='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  const clockIco='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+  const editIco='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+
+  if(!total){
+    const bigIco='<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>';
+    el.innerHTML='<div class="habits-empty">'+bigIco+'<div class="ev-ttl">Sin rutinas configuradas</div><div class="ev-sub">Agregá tus hábitos diarios y recibí notificaciones push para recordártelos</div></div>'+
+      '<button type="button" class="habit-add-row" onclick="openHabitModal(null)" aria-label="Agregar rutina">'+
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
+      'Agregar primera rutina</button>';
+    return;
+  }
+
+  let itemsHtml='';
+  habitData.forEach(h=>{
+    const i=reg(()=>toggleHabit(h.id,h.done));
+    const e=reg(()=>openHabitModal(h.id));
+    const timeLbl=h.notify_time?'<div class="habit-time-lbl">'+clockIco+' '+h.notify_time+'</div>':'';
+    itemsHtml+='<div class="habit-item'+(h.done?' done':'')+'">'+
+      '<div class="habit-check" onclick="_h['+i+']()" role="checkbox" aria-checked="'+(h.done?'true':'false')+'" tabindex="0">'+
+        '<span class="habit-ck-ico">'+checkIco+'</span>'+
+      '</div>'+
+      '<div class="habit-body" onclick="_h['+i+']()" >'+
+        '<div class="habit-ttl">'+esc(h.title)+'</div>'+
+        timeLbl+
+      '</div>'+
+      '<button type="button" class="habit-edit-btn" onclick="_h['+e+']()" aria-label="Editar rutina">'+editIco+'</button>'+
+    '</div>';
+  });
+
+  const allDoneBlock=(done===total&&total>0)?
+    '<div class="habits-all-done"><div class="habits-all-done-ttl">Rutina completada</div><div class="habits-all-done-sub">Completaste todo por hoy. Excelente!</div></div>':'';
+
+  el.innerHTML=
+    '<div class="habits-top">'+
+      '<span class="habits-top-lbl">Hoy · '+done+' de '+total+'</span>'+
+      '<span class="habits-top-score">'+pct+'%</span>'+
+    '</div>'+
+    '<div class="habits-bar-wrap"><div class="habits-bar" style="width:'+pct+'%"></div></div>'+
+    allDoneBlock+
+    '<div class="habit-list">'+itemsHtml+'</div>'+
+    '<button type="button" class="habit-add-row" onclick="openHabitModal(null)" aria-label="Agregar rutina">'+
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
+      'Agregar rutina</button>';
+}
+
+async function toggleHabit(id,wasDone){
+  const h=habitData.find(x=>x.id===id);
+  if(!h)return;
+  h.done=!wasDone;
+  updateHabitBadge();
+  renderHabitsView(document.getElementById('content'));
+  try{
+    if(wasDone){
+      await apiFetch(API+'/habits/'+id+'/complete',{method:'DELETE'});
+    }else{
+      await apiFetch(API+'/habits/'+id+'/complete',{method:'POST'});
+    }
+  }catch(e){
+    // revertir si falla
+    h.done=wasDone;updateHabitBadge();renderHabitsView(document.getElementById('content'));
+  }
+}
+
+function openHabitModal(id){
+  _habitEditId=id;
+  const h=id?habitData.find(x=>x.id===id):null;
+  document.getElementById('habitModalTtl').textContent=h?'Editar rutina':'Nueva rutina';
+  document.getElementById('habitTitleIn').value=h?h.title:'';
+  document.getElementById('habitTimeIn').value=h&&h.notify_time?h.notify_time:'';
+  document.getElementById('habitDelBtn').style.display=h?'':'none';
+  document.getElementById('habitModal').classList.add('show');
+  setTimeout(()=>document.getElementById('habitTitleIn').focus(),80);
+}
+function closeHabitModal(){
+  document.getElementById('habitModal').classList.remove('show');
+  _habitEditId=null;
+}
+async function saveHabit(){
+  const title=document.getElementById('habitTitleIn').value.trim();
+  const notify_time=document.getElementById('habitTimeIn').value||null;
+  if(!title){toast('Escribí un nombre para la rutina');return;}
+  try{
+    if(_habitEditId){
+      await apiFetch(API+'/habits/'+_habitEditId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,notify_time})});
+      const h=habitData.find(x=>x.id===_habitEditId);
+      if(h){h.title=title;h.notify_time=notify_time;}
+    }else{
+      const r=await apiFetch(API+'/habits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,notify_time})});
+      const j=await r.json();
+      habitData.push({id:j.id,title,notify_time,done:0,active:1,sort_order:0});
+    }
+    closeHabitModal();
+    updateHabitBadge();
+    renderHabitsView(document.getElementById('content'));
+    toast(_habitEditId?'Rutina actualizada':'Rutina agregada');
+  }catch(e){if(e.message!=='401')toast('Error al guardar');}
+}
+async function deleteHabit(){
+  if(!_habitEditId)return;
+  if(!confirm('Eliminar esta rutina?'))return;
+  const id=_habitEditId;
+  closeHabitModal();
+  try{
+    await apiFetch(API+'/habits/'+id,{method:'DELETE'});
+    habitData=habitData.filter(x=>x.id!==id);
+    updateHabitBadge();
+    renderHabitsView(document.getElementById('content'));
+    toast('Rutina eliminada');
+  }catch(e){if(e.message!=='401')toast('Error al eliminar');}
+}
 
 // ── QUICK-ADD (texto + audio) ──────────────────────────────────────────────────
 let qaCompany='';
@@ -2037,7 +2223,7 @@ function initApp(){
   const sr=document.getElementById('sinRespBtn');if(sr)sr.style.display='flex';
   const ib=document.getElementById('inboxBtn');if(ib)ib.style.display='flex';
   const savedV=localStorage.getItem('pai_view');
-  if(savedV&&['hoy','todo','agenda','recur','sinresp','inbox'].includes(savedV))view=savedV;
+  if(savedV&&['hoy','todo','agenda','recur','sinresp','inbox','habits'].includes(savedV))view=savedV;
   else view='hoy';
   const savedC=localStorage.getItem('pai_company');
   if(savedC&&(savedC==='all'||COMPANY_ORDER.includes(savedC)))companyFilter=savedC;
@@ -2045,8 +2231,8 @@ function initApp(){
   updateTabActive();
   const showFilters=TASK_VIEWS.includes(view);
   document.getElementById('compPills').style.display=showFilters?'':'none';
-  document.querySelector('.toolbar').style.display=(view==='sinresp'||view==='recur'||view==='inbox')?'none':'';
-  startSSE();loadAll();loadInbox();
+  document.querySelector('.toolbar').style.display=(view==='sinresp'||view==='recur'||view==='inbox'||view==='habits')?'none':'';
+  startSSE();loadAll();loadInbox();loadHabits();
 }
 
 if(TOKEN){initApp();}
