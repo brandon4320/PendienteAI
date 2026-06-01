@@ -61,7 +61,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* BANDEJAS — compactas */
 .btabs{display:flex;border-bottom:1px solid var(--border)}
-.bt{flex:1;padding:5px 2px;text-align:center;cursor:pointer;font-size:9px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;background:transparent;border-top:none;border-left:none;border-right:none;transition:color .15s,border-color .15s;min-height:34px;display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap}
+.bt{flex:1;padding:5px 2px;text-align:center;cursor:pointer;font-size:9px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;background:transparent;border-top:none;border-left:none;border-right:none;transition:color .15s,border-color .15s;min-height:40px;display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .bt svg{vertical-align:middle;flex-shrink:0}
 .bt.active{color:var(--text);border-bottom-color:var(--green)}
 .bt.active.sin{border-bottom-color:var(--purple)}
@@ -104,7 +104,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* FILA DE EMPRESAS — compacta */
 .comp-pills{display:flex;gap:5px;padding:5px 12px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .comp-pills::-webkit-scrollbar{display:none}
-.cmp{flex-shrink:0;padding:3px 10px;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;border-radius:var(--r-full);background:transparent;white-space:nowrap;min-height:26px;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.cmp{flex-shrink:0;padding:5px 12px;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;border-radius:var(--r-full);background:transparent;white-space:nowrap;min-height:32px;display:inline-flex;align-items:center;gap:5px;transition:all .15s;position:relative;-webkit-tap-highlight-color:transparent}
+.cmp::after{content:'';position:absolute;inset:-6px -2px}
 .cmp .cdot{width:6px;height:6px;border-radius:50%;background:var(--cc,var(--muted2));flex-shrink:0}
 .cmp.active{color:#fff;border-color:transparent;background:var(--cc,#4b5563)}
 .cmp.active .cdot{background:rgba(255,255,255,0.9)}
@@ -209,7 +210,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .rrow-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .rrow-cad{font-family:var(--mono);font-size:10px;color:var(--purple);background:var(--purple-bg);border:1px solid var(--purple-b);padding:1px 5px;border-radius:4px}
 .rrow-next{font-family:var(--mono);font-size:10px;color:var(--muted2)}
-.rbtn{flex-shrink:0;width:34px;height:34px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--card);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.rbtn{flex-shrink:0;width:38px;height:38px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--card);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent}
+.rbtn::after{content:'';position:absolute;inset:-4px}
 .rbtn.del{border-color:var(--red-b);color:var(--red)}
 
 /* PRIORIDAD DOT — oculto (redundante con el badge) */
@@ -221,8 +223,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .dot-mio{background:var(--orange)}
 
 /* CARD DETALLE */
-.tc-detail{border-top:1px solid var(--border);padding:10px 11px;background:var(--card2);display:none}
-.tc-detail.open{display:block}
+.tc-detail{border-top:1px solid var(--border);padding:0 11px;background:var(--card2);overflow:hidden;max-height:0;opacity:0;transition:max-height .28s cubic-bezier(.4,0,.2,1),opacity .22s ease,padding .28s ease}
+.tc-detail.open{max-height:600px;opacity:1;padding:10px 11px}
+@media(prefers-reduced-motion:reduce){.tc-detail{transition:none}.tc-detail.open{max-height:none;opacity:1;padding:10px 11px}}
 .dl{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
 .dtask{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;padding:8px 10px;background:var(--card);border-radius:var(--r-sm);border:1px solid var(--border);line-height:1.5}
 .dactions{display:flex;gap:5px}
@@ -235,7 +238,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* CHIPS DE ACCIÓN */
 .action-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-.achip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;text-decoration:none;transition:transform 0.1s,opacity 0.1s;white-space:nowrap}
+.achip{display:inline-flex;align-items:center;gap:4px;padding:8px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;text-decoration:none;transition:transform 0.1s,opacity 0.1s;white-space:nowrap;min-height:36px;-webkit-tap-highlight-color:transparent}
 .achip:active{transform:scale(0.96);opacity:0.85}
 .achip-cal{background:#f5f3ff;color:var(--purple);border-color:#ddd6fe}
 .achip-tel{background:#f0fdf4;color:var(--green);border-color:#bbf7d0}
@@ -280,7 +283,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .habit-ttl{font-size:15px;font-weight:600;line-height:1.3;color:var(--text);transition:color .18s}
 .habit-item.done .habit-ttl{color:var(--muted2);text-decoration:line-through}
 .habit-time-lbl{display:flex;align-items:center;gap:3px;font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:3px}
-.habit-edit-btn{flex-shrink:0;width:34px;height:34px;border:none;background:transparent;color:var(--muted2);cursor:pointer;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.habit-edit-btn{flex-shrink:0;width:40px;height:40px;border:none;background:transparent;color:var(--muted2);cursor:pointer;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;position:relative}
+.habit-edit-btn::after{content:'';position:absolute;inset:-2px}
 .habit-add-row{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--card);border-top:1px solid var(--border);color:var(--green);font-size:14px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .habits-all-done{margin:16px;padding:20px 16px;background:var(--green-bg);border:1.5px solid var(--green-b);border-radius:var(--r-lg);text-align:center}
 .habits-all-done-ttl{font-size:17px;font-weight:800;color:var(--green);margin-bottom:4px}
@@ -306,6 +310,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .habit-swipe-inner{position:relative;z-index:1;background:var(--card)}
 .tcard.dismissing,.sw-wrap.dismissing{animation:out .28s ease forwards;pointer-events:none}
 @keyframes out{to{opacity:0;max-height:0;margin:0;padding:0;border:none}}
+.tcard.resolving,.sw-wrap.resolving{animation:resolve-flash .52s ease forwards;pointer-events:none;overflow:hidden}
+@keyframes resolve-flash{0%{background:var(--card)}18%{background:var(--green-bg);border-left-color:var(--green)}75%{background:var(--green-bg);opacity:1}100%{opacity:0;max-height:0;margin:0;padding:0;border:none}}
 /* SWIPE WRAPPER */
 .sw-wrap{position:relative;overflow:hidden;border-radius:var(--r-md);margin-bottom:3px}
 .sw-wrap .tcard{margin-bottom:0;border-radius:var(--r-md);position:relative;z-index:1;will-change:transform}
@@ -928,7 +934,7 @@ async function loadInbox(){
   }
 }
 async function confirmInbox(id){
-  dismissCard(id);
+  dismissCard(id,'resolve');
   try{await apiFetch(API+'/tasks/'+id+'/confirm',{method:'PATCH'});}catch(e){if(e.message==='401')return;}
   data.inbox=data.inbox.filter(t=>t.id!=id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
@@ -1680,9 +1686,11 @@ async function _apiDelete(id){try{await apiFetch(API+'/tasks/'+id,{method:'DELET
 // ── SWIPE HELPERS ─────────────────────────────────────────────────────────────
 let _swRevealEl=null;
 const SW_REVEAL_W=130,SW_RESOLVE_T=100,SW_REVEAL_T=90;
-function dismissCard(id){
+function dismissCard(id,type='discard'){
   const c=document.getElementById('card-'+id);if(!c)return;
-  const w=c.closest('.sw-wrap');(w||c).classList.add('dismissing');
+  const w=c.closest('.sw-wrap')||c.closest('.habit-swipe-wrap');
+  const target=w||c;
+  target.classList.add(type==='resolve'?'resolving':'dismissing');
 }
 function closeSwipeReveal(){
   if(!_swRevealEl)return;
@@ -1735,7 +1743,7 @@ async function submitFeedback(reason) {
 
 function resolve(id){
   if(_pendingResolve[id])return;
-  dismissCard(id);
+  dismissCard(id,'resolve');
   _removeLocal(id);
   setTimeout(()=>{updateBadges();renderTasks();},290);
   toastUndo('✅ Resuelto',()=>{const tm=_pendingResolve[id];if(tm)clearTimeout(tm);delete _pendingResolve[id];loadAll();});
