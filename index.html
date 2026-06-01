@@ -2031,6 +2031,7 @@ function openQuickAdd(){
 }
 function closeQuickAdd(){
   if(_rec&&_rec.state==='recording'){_discardRec=true;try{_rec.stop();}catch(e){}}
+  if(_stopVAD){_stopVAD();_stopVAD=null;}
   document.getElementById('quickAdd').classList.remove('show');
 }
 async function sendQuickText(){
@@ -2052,6 +2053,50 @@ async function sendQuickText(){
     btn.disabled=false;
   }
 }
+// ── VAD (Voice Activity Detection) ───────────────────────────────────────────
+let _stopVAD=null,_vadCtx=null;
+const _VAD_SIL_MS=1800;   // ms de silencio continuo → auto-corte
+const _VAD_MIN_MS=600;    // ms mínimos de grabación antes de activar VAD
+const _VAD_RMS_THR=0.015; // umbral RMS (0-1) por debajo del cual es silencio
+
+function _startVAD(stream,onSilence){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    _vadCtx=ctx;
+    const analyser=ctx.createAnalyser();
+    analyser.fftSize=2048;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const buf=new Uint8Array(analyser.fftSize);
+    const t0=Date.now();
+    let silFrom=null,alive=true;
+    function tick(){
+      if(!alive)return;
+      analyser.getByteTimeDomainData(buf);
+      let sum=0;
+      for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;sum+=v*v;}
+      const rms=Math.sqrt(sum/buf.length);
+      const now=Date.now();
+      if(now-t0>=_VAD_MIN_MS){
+        if(rms<_VAD_RMS_THR){
+          if(!silFrom)silFrom=now;
+          else if(now-silFrom>=_VAD_SIL_MS){alive=false;onSilence();return;}
+        }else{silFrom=null;}
+        // Actualizar texto de estado
+        const st=document.getElementById('qaStatus');
+        if(st&&_rec&&_rec.state==='recording'){
+          if(silFrom){
+            const rem=Math.max(0,Math.ceil((_VAD_SIL_MS-(now-silFrom))/1000));
+            st.textContent=rem>0?'Pausa… corta en '+rem+'s':'Cortando…';
+          }else{st.textContent='Grabando…';}
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+    return()=>{alive=false;ctx.close().catch(()=>{});_vadCtx=null;};
+  }catch(e){return()=>{};}
+}
+
 let _rec=null,_chunks=[],_stream=null,_discardRec=false;
 async function toggleMic(){
   const mic=document.getElementById('qaMic');
@@ -2071,6 +2116,7 @@ async function toggleMic(){
   catch(e){_rec=new MediaRecorder(_stream);}
   _rec.ondataavailable=e=>{if(e.data&&e.data.size)_chunks.push(e.data);};
   _rec.onstop=async()=>{
+    if(_stopVAD){_stopVAD();_stopVAD=null;}
     mic.classList.remove('rec');
     if(_stream){_stream.getTracks().forEach(tr=>tr.stop());_stream=null;}
     if(_discardRec){_discardRec=false;return;}
@@ -2082,17 +2128,18 @@ async function toggleMic(){
       const r=await apiFetch(API+'/bot/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:b64,mime:blob.type,company:qaCompany||undefined})});
       const j=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(j.error||'error');
-      if(j.query){st.className='qa-status';st.textContent='Sonó como una consulta — dictá una tarea para anotar';return;}
+      if(j.query){st.className='qa-status';st.textContent='Sono como una consulta — dicta una tarea para anotar';return;}
       closeQuickAdd();
-      toast(j.recurring?('🔁 Recurrente: '+(j.task||'creada')):(j.task?('✅ '+j.task):'✅ Anotado'));
+      toast(j.recurring?('Recurrente: '+(j.task||'creada')):(j.task?j.task:'Anotado'));
       if(view==='recur')loadRecurring();else loadAll();
     }catch(e){
-      if(e.message!=='401')st.textContent='No se entendió el audio, probá de nuevo';
+      if(e.message!=='401')st.textContent='No se entendio el audio, proba de nuevo';
     }
   };
   _rec.start();
+  _stopVAD=_startVAD(_stream,()=>{if(_rec&&_rec.state==='recording')_rec.stop();});
   mic.classList.add('rec');
-  st.className='qa-status rec';st.textContent='Grabando… tocá el micrófono para terminar';
+  st.className='qa-status rec';st.textContent='Grabando… corta solo al silencio';
 }
 function blobToB64(blob){
   return new Promise((res,rej)=>{
