@@ -593,12 +593,70 @@ function showLogin(msg){
   setTimeout(()=>document.getElementById('loginToken').focus(),50);
 }
 
+// ── LOCAL CACHE (IndexedDB) ───────────────────────────────────────────────────
+const localCache=(()=>{
+  let _db=null;
+  function open(){
+    if(_db)return Promise.resolve(_db);
+    return new Promise((res,rej)=>{
+      const req=indexedDB.open('pendienteai_v1',1);
+      req.onupgradeneeded=e=>e.target.result.createObjectStore('cache');
+      req.onsuccess=e=>{_db=e.target.result;res(_db);};
+      req.onerror=()=>rej(req.error);
+    });
+  }
+  return{
+    get(key){return open().then(db=>new Promise((res,rej)=>{const r=db.transaction('cache','readonly').objectStore('cache').get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));},
+    set(key,val){return open().then(db=>new Promise((res,rej)=>{const r=db.transaction('cache','readwrite').objectStore('cache').put(val,key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);}));}
+  };
+})();
+
+// ── OFFLINE QUEUE ────────────────────────────────────────────────────────────
+const _OQ_KEY='pai_offline_queue';
+const _OQ_SKIP=['/bot/','/push/','/recurring','/stream','/health','/settings'];
+function _oqPush(item){
+  try{
+    const q=JSON.parse(localStorage.getItem(_OQ_KEY)||'[]');
+    item.id=Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    item.ts=Date.now();
+    q.push(item);
+    localStorage.setItem(_OQ_KEY,JSON.stringify(q));
+    // Background Sync (Chrome/Android)
+    if('serviceWorker'in navigator&&'SyncManager'in window){
+      navigator.serviceWorker.ready.then(r=>r.sync.register('drain-queue')).catch(()=>{});
+    }
+  }catch(e){}
+}
+function _oqAll(){try{return JSON.parse(localStorage.getItem(_OQ_KEY)||'[]');}catch(e){return[];}}
+function _oqRemove(id){try{const q=_oqAll().filter(x=>x.id!==id);localStorage.setItem(_OQ_KEY,JSON.stringify(q));}catch(e){}}
+async function _drainQueue(){
+  const q=_oqAll();if(!q.length)return;
+  let drained=0;
+  for(const item of q){
+    try{
+      const r=await fetch(item.url,{method:item.method,headers:{...item.headers,'X-Api-Token':TOKEN},body:item.body||undefined});
+      if(r.ok||r.status<500){_oqRemove(item.id);drained++;}
+    }catch(e){break;}
+  }
+  if(drained>0){toast(drained===1?'1 accion offline aplicada':drained+' acciones offline aplicadas');loadAll();}
+}
+
 // ── API FETCH ─────────────────────────────────────────────────────────────────
 function apiFetch(url,opts={}){
-  return fetch(url,{...opts,headers:{...opts.headers,'X-Api-Token':TOKEN}}).then(r=>{
-    if(r.status===401){showLogin('Token incorrecto');throw new Error('401');}
-    return r;
-  });
+  return fetch(url,{...opts,headers:{...opts.headers,'X-Api-Token':TOKEN}})
+    .then(r=>{
+      if(r.status===401){showLogin('Token incorrecto');throw new Error('401');}
+      return r;
+    })
+    .catch(e=>{
+      if(e.message==='401')throw e;
+      // Error de red: encolar si es una mutación encueable
+      const method=(opts.method||'GET').toUpperCase();
+      if(['POST','PATCH','DELETE'].includes(method)&&!_OQ_SKIP.some(s=>url.includes(s))){
+        _oqPush({url,method,headers:opts.headers||{},body:opts.body||null});
+      }
+      throw e;
+    });
 }
 
 let data={pendiente:[],sin_responder:[],mio:[],inbox:[]};
@@ -728,22 +786,43 @@ function updateCompanyCounts(){
 async function loadAll(){
   const icon=document.getElementById('refreshIcon');
   icon.classList.add('spin');
+  // Cache-first: mostrar datos guardados si data está vacía (primera carga = cero latencia percibida)
+  const isEmpty=!data.pendiente.length&&!data.sin_responder.length&&!data.mio.length;
+  if(isEmpty){
+    try{
+      const cached=await localCache.get('tasks');
+      if(cached){
+        data.pendiente=cached.pendiente||[];
+        data.sin_responder=cached.sin_responder||[];
+        data.mio=cached.mio||[];
+        updateBadges();renderTasks();
+      }
+    }catch(e){}
+  }
   try{
     const [r1,r2,r3]=await Promise.all([
       apiFetch(API+'/tasks?type=pendiente'),
       apiFetch(API+'/tasks?type=sin_responder'),
       apiFetch(API+'/tasks?type=mio'),
     ]);
-    data.pendiente=_stripResolved(await r1.json());
-    data.sin_responder=_stripResolved(await r2.json());
-    data.mio=_stripResolved(await r3.json());
+    const p=_stripResolved(await r1.json());
+    const s=_stripResolved(await r2.json());
+    const m=_stripResolved(await r3.json());
+    // Re-renderizar solo si los datos cambiaron (evita parpadeo cuando coincide con cache)
+    const sig=JSON.stringify([p,s,m]);
+    const old=JSON.stringify([data.pendiente,data.sin_responder,data.mio]);
+    data.pendiente=p;data.sin_responder=s;data.mio=m;
     setConn(true);
     updateBadges();
-    renderTasks();
+    if(sig!==old)renderTasks();
+    localCache.set('tasks',{pendiente:p,sin_responder:s,mio:m}).catch(()=>{});
   }catch(e){
     if(e.message==='401')return;
     setConn(false);
-    document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+escHtml(e.message)+'</small></div>';
+    // Solo mostrar error vacío si no hay nada en pantalla (cache ni datos previos)
+    if(!data.pendiente.length&&!data.sin_responder.length&&!data.mio.length){
+      document.getElementById('content').innerHTML='<div class="err">Sin conexión<br><small>'+escHtml(e.message)+'</small></div>';
+    }
   }finally{
     icon.classList.remove('spin');
   }
@@ -1941,8 +2020,16 @@ async function testPush(){
 
 // Registrar Service Worker al cargar
 if('serviceWorker'in navigator){
-  navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('SW register:',e));
+  navigator.serviceWorker.register('/sw.js').then(()=>{
+    // Escuchar mensajes del SW (Background Sync → drain queue)
+    navigator.serviceWorker.addEventListener('message',e=>{
+      if(e.data&&e.data.type==='DRAIN_QUEUE')_drainQueue();
+    });
+  }).catch(e=>console.warn('SW register:',e));
 }
+// Reconexión: drenar cola offline (fallback cross-browser, cubre iOS)
+window.addEventListener('online',()=>{setConn(true);_drainQueue();});
+window.addEventListener('offline',()=>setConn(false));
 
 function initApp(){
   const fab=document.getElementById('fab');if(fab)fab.style.display='flex';

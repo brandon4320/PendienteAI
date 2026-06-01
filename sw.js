@@ -1,5 +1,5 @@
 // Service Worker — PendienteAI
-// Maneja notificaciones push y el click en notificaciones.
+// Maneja notificaciones push, click en notificaciones y Background Sync (offline queue).
 
 self.addEventListener('push', e => {
   if (!e.data) return;
@@ -14,6 +14,17 @@ self.addEventListener('push', e => {
       data: { url: data.url || 'https://pendienteia.vercel.app' },
     })
   );
+});
+
+// Background Sync: señalar al cliente que drene la cola offline
+self.addEventListener('sync', e => {
+  if(e.tag === 'drain-queue'){
+    e.waitUntil(
+      clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{
+        list.forEach(c=>c.postMessage({type:'DRAIN_QUEUE'}));
+      })
+    );
+  }
 });
 
 self.addEventListener('notificationclick', e => {
