@@ -1098,6 +1098,23 @@ app.post('/digest/test', async (req, res) => {
 });
 
 // ─── HÁBITOS DIARIOS (checklist de rutina) ──────────────────────────────────
+function habitStreak(total) {
+  if (!total) return 0;
+  const today = todayISO_AR();
+  const stmt = db.prepare(
+    'SELECT COUNT(DISTINCT habit_id) as n FROM daily_completions WHERE date=? AND habit_id IN (SELECT id FROM daily_habits WHERE active=1)'
+  );
+  const todayDone = stmt.get(today).n >= total;
+  let streak = todayDone ? 1 : 0;
+  let date = today;
+  for (let i = 0; i < 365; i++) {
+    date = addDaysISO(date, -1);
+    if (stmt.get(date).n >= total) streak++;
+    else break;
+  }
+  return streak;
+}
+
 app.get('/habits', (req, res) => {
   const today = todayISO_AR();
   const habits = db.prepare(`
@@ -1105,9 +1122,10 @@ app.get('/habits', (req, res) => {
     FROM daily_habits h
     LEFT JOIN daily_completions dc ON dc.habit_id=h.id AND dc.date=?
     WHERE h.active=1
-    ORDER BY h.notify_time IS NULL, h.notify_time, h.sort_order, h.id
+    ORDER BY h.sort_order, h.notify_time IS NULL, h.notify_time, h.id
   `).all(today);
-  res.json(habits);
+  const streak = habitStreak(habits.length);
+  res.json({ habits, streak });
 });
 
 app.post('/habits', (req, res) => {
@@ -1134,6 +1152,14 @@ app.delete('/habits/:id', (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'id invalido' });
   db.prepare('UPDATE daily_habits SET active=0 WHERE id=?').run(id);
+  res.json({ ok: true });
+});
+
+app.post('/habits/reorder', (req, res) => {
+  const { order } = req.body || {};
+  if (!Array.isArray(order)) return res.status(400).json({ error: 'order array requerido' });
+  const upd = db.prepare('UPDATE daily_habits SET sort_order=? WHERE id=?');
+  order.forEach((id, idx) => upd.run(idx, id));
   res.json({ ok: true });
 });
 

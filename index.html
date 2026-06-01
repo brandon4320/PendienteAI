@@ -61,7 +61,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* BANDEJAS — compactas */
 .btabs{display:flex;border-bottom:1px solid var(--border)}
-.bt{flex:1;padding:6px 4px;text-align:center;cursor:pointer;font-size:10px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;background:transparent;border-top:none;border-left:none;border-right:none;transition:color .15s,border-color .15s;min-height:34px;display:flex;align-items:center;justify-content:center;gap:3px}
+.bt{flex:1;padding:5px 2px;text-align:center;cursor:pointer;font-size:9px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;background:transparent;border-top:none;border-left:none;border-right:none;transition:color .15s,border-color .15s;min-height:34px;display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap}
 .bt svg{vertical-align:middle;flex-shrink:0}
 .bt.active{color:var(--text);border-bottom-color:var(--green)}
 .bt.active.sin{border-bottom-color:var(--purple)}
@@ -291,6 +291,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .habits-empty .ev-sub{font-size:13px;color:var(--muted)}
 /* Modal hábito — usa los mismos .modal, .modal-label, .modal-input, .modal-actions */
 .habit-del-btn{width:100%;padding:10px;margin-top:6px;background:transparent;border:1px solid var(--red-b);color:var(--red);border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;min-height:40px}
+/* Drag handle */
+.habit-handle{width:28px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted2);flex-shrink:0;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.habit-item.drag-source{opacity:.35;}
+.habit-item.drag-over-top{border-top:2.5px solid var(--green);}
+.habit-item.drag-over-bot{border-bottom:2.5px solid var(--green);}
+.habit-drag-ghost{position:fixed;pointer-events:none;z-index:999;background:var(--card);border-radius:var(--r-md);box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:.92;transform:rotate(1.5deg) scale(1.02);transition:none;}
+/* Streak */
+.habit-streak{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--amber);margin-top:2px}
+.habit-streak.zero{color:var(--muted2);font-weight:500}
+/* Swipe bg en habit */
+.habit-swipe-wrap{position:relative;overflow:hidden}
+.habit-swipe-bg{position:absolute;left:0;top:0;bottom:0;right:0;background:var(--green);display:flex;align-items:center;padding-left:18px;pointer-events:none;opacity:0;transition:opacity .08s}
+.habit-swipe-inner{position:relative;z-index:1;background:var(--card)}
 .tcard.dismissing,.sw-wrap.dismissing{animation:out .28s ease forwards;pointer-events:none}
 @keyframes out{to{opacity:0;max-height:0;margin:0;padding:0;border:none}}
 /* SWIPE WRAPPER */
@@ -507,7 +520,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 </div>
 
 <!-- FAB QUICK-ADD -->
-<button type="button" class="fab" id="fab" onclick="openQuickAdd()" aria-label="Agregar tarea" style="display:none">
+<button type="button" class="fab" id="fab" onclick="view==='habits'?openHabitModal(null):openQuickAdd()" aria-label="Agregar tarea" style="display:none">
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>
 
@@ -1178,7 +1191,7 @@ function renderHoyView(el){
     {k:'over',cls:'b-over',name:'Vencidas'},
     {k:'today',cls:'b-today',name:'Vencen hoy'},
     {k:'urgent',cls:'b-urgent',name:'Urgente'},
-    {k:'tom',cls:'b-tom',name:'Mañana'},
+    {k:'tom',cls:'b-tom',name:'Vence mañana'},
   ];
   const grouped={};tasks.forEach(t=>{const b=hoyBucket(t);(grouped[b]=grouped[b]||[]).push(t);});
   let html='',gi=0;
@@ -1197,12 +1210,10 @@ function renderHoyView(el){
 }
 function renderHoyItem(t,gi){
   const comp=t.company||'personal',m=companyMeta(comp),cc=companyClass(comp);
-  const who=(t.contact&&t.contact!=='Yo')?
-    '<span class="cgln-sep">·</span><span class="cgln-contact">'+esc(t.contact)+'</span>':'';
-  return '<div class="cgroup '+cc+'"><div class="cg-line-hdr">'+
-    '<span class="cgln-comp">'+m.name+'</span>'+
-    who+
-    '</div>'+renderCard(t,gi)+'</div>';
+  const who=(t.contact&&t.contact!=='Yo')?'<span class="cgln-sep">·</span><span class="cgln-contact">'+esc(t.contact)+'</span>':'';
+  // Cuando hay filtro de empresa activo, ocultar la etiqueta redundante
+  const compLbl=companyFilter==='all'?'<span class="cgln-comp">'+m.name+'</span>':'';
+  return '<div class="cgroup '+cc+'"><div class="cg-line-hdr">'+compLbl+who+'</div>'+renderCard(t,gi)+'</div>';
 }
 // ── RECURRENTES ─────────────────────────────────────────────────────────────
 let recurData=[];
@@ -1877,13 +1888,16 @@ _cnt.addEventListener('touchend',e=>{
 
 // ── RUTINA — HÁBITOS DIARIOS ─────────────────────────────────────────────────
 let habitData=[];
+let _habitStreak=0;
 let _habitEditId=null;
 
 async function loadHabits(){
   try{
     const r=await apiFetch(API+'/habits');
-    habitData=await r.json();
-  }catch(e){if(e.message==='401')return;habitData=[];}
+    const j=await r.json();
+    if(Array.isArray(j)){habitData=j;_habitStreak=0;}
+    else{habitData=j.habits||[];_habitStreak=j.streak||0;}
+  }catch(e){if(e.message==='401')return;habitData=[];_habitStreak=0;}
   updateHabitBadge();
   if(view==='habits')renderHabitsView(document.getElementById('content'));
 }
@@ -1901,6 +1915,8 @@ function renderHabitsView(el){
   const checkIco='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
   const clockIco='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
   const editIco='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+  const dragIco='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>';
+  const swipeCheckIco='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 
   if(!total){
     const bigIco='<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>';
@@ -1911,21 +1927,38 @@ function renderHabitsView(el){
     return;
   }
 
+  // Streak badge
+  const streakHtml=_habitStreak>0
+    ?'<span class="habit-streak">'+String.fromCodePoint(0x1F525)+' '+_habitStreak+(_habitStreak===1?' d\xEDa':' d\xEDas')+'</span>'
+    :'<span class="habit-streak zero">Sin racha</span>';
+
   let itemsHtml='';
   habitData.forEach(h=>{
     const i=reg(()=>toggleHabit(h.id,h.done));
     const e=reg(()=>openHabitModal(h.id));
     const timeLbl=h.notify_time?'<div class="habit-time-lbl">'+clockIco+' '+h.notify_time+'</div>':'';
-    itemsHtml+='<div class="habit-item'+(h.done?' done':'')+'">'+
-      '<div class="habit-check" onclick="_h['+i+']()" role="checkbox" aria-checked="'+(h.done?'true':'false')+'" tabindex="0">'+
-        '<span class="habit-ck-ico">'+checkIco+'</span>'+
-      '</div>'+
-      '<div class="habit-body" onclick="_h['+i+']()" >'+
-        '<div class="habit-ttl">'+esc(h.title)+'</div>'+
-        timeLbl+
-      '</div>'+
-      '<button type="button" class="habit-edit-btn" onclick="_h['+e+']()" aria-label="Editar rutina">'+editIco+'</button>'+
-    '</div>';
+    // Swipe + drag wrapper (swipe only for non-done items)
+    const inner=
+      '<div class="habit-item'+(h.done?' done':'')+'" data-hid="'+h.id+'">'+
+        '<div class="habit-handle" data-drag="'+h.id+'" aria-hidden="true">'+dragIco+'</div>'+
+        '<div class="habit-check" onclick="_h['+i+']()" role="checkbox" aria-checked="'+(h.done?'true':'false')+'" tabindex="0">'+
+          '<span class="habit-ck-ico">'+checkIco+'</span>'+
+        '</div>'+
+        '<div class="habit-body" onclick="_h['+i+']()" >'+
+          '<div class="habit-ttl">'+esc(h.title)+'</div>'+
+          timeLbl+
+        '</div>'+
+        '<button type="button" class="habit-edit-btn" onclick="_h['+e+']()" aria-label="Editar rutina">'+editIco+'</button>'+
+      '</div>';
+    if(!h.done){
+      itemsHtml+=
+        '<div class="habit-swipe-wrap" data-swipe-hid="'+h.id+'">'+
+          '<div class="habit-swipe-bg">'+swipeCheckIco+'</div>'+
+          '<div class="habit-swipe-inner">'+inner+'</div>'+
+        '</div>';
+    }else{
+      itemsHtml+='<div class="habit-swipe-wrap" data-swipe-hid="'+h.id+'">'+inner+'</div>';
+    }
   });
 
   const allDoneBlock=(done===total&&total>0)?
@@ -1934,14 +1967,20 @@ function renderHabitsView(el){
   el.innerHTML=
     '<div class="habits-top">'+
       '<span class="habits-top-lbl">Hoy · '+done+' de '+total+'</span>'+
-      '<span class="habits-top-score">'+pct+'%</span>'+
+      '<span style="display:flex;align-items:center;gap:8px">'+streakHtml+'<span class="habits-top-score">'+pct+'%</span></span>'+
     '</div>'+
     '<div class="habits-bar-wrap"><div class="habits-bar" style="width:'+pct+'%"></div></div>'+
     allDoneBlock+
-    '<div class="habit-list">'+itemsHtml+'</div>'+
+    '<div class="habit-list" id="habitList">'+itemsHtml+'</div>'+
     '<button type="button" class="habit-add-row" onclick="openHabitModal(null)" aria-label="Agregar rutina">'+
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
       'Agregar rutina</button>';
+
+  // Attach swipe + drag after render
+  requestAnimationFrame(()=>{
+    _attachHabitSwipe();
+    _habitDragSetup();
+  });
 }
 
 async function toggleHabit(id,wasDone){
@@ -1960,6 +1999,129 @@ async function toggleHabit(id,wasDone){
     // revertir si falla
     h.done=wasDone;updateHabitBadge();renderHabitsView(document.getElementById('content'));
   }
+}
+
+// ── SWIPE: deslizar a la derecha para marcar completado ─────────────────────
+function _attachHabitSwipe(){
+  const wraps=document.querySelectorAll('.habit-swipe-wrap[data-swipe-hid]');
+  wraps.forEach(wrap=>{
+    const hid=parseInt(wrap.getAttribute('data-swipe-hid'),10);
+    const bg=wrap.querySelector('.habit-swipe-bg');
+    const inner=wrap.querySelector('.habit-swipe-inner');
+    if(!inner)return; // done items have no swipe-inner
+    let x0=null,active=false;
+    inner.addEventListener('touchstart',e=>{
+      if(e.touches.length!==1)return;
+      x0=e.touches[0].clientX;active=true;
+    },{passive:true});
+    inner.addEventListener('touchmove',e=>{
+      if(!active||x0===null)return;
+      const dx=e.touches[0].clientX-x0;
+      if(dx<0){inner.style.transform='';if(bg)bg.style.opacity='0';return;}
+      inner.style.transform='translateX('+Math.min(dx,90)+'px)';
+      if(bg)bg.style.opacity=Math.min(dx/70,1);
+    },{passive:true});
+    inner.addEventListener('touchend',e=>{
+      if(!active)return;active=false;
+      const dx=e.changedTouches[0].clientX-x0;
+      inner.style.transition='transform .18s ease';
+      if(dx>60){
+        inner.style.transform='translateX(100%)';
+        if(bg)bg.style.opacity='1';
+        setTimeout(()=>{inner.style.transition='';inner.style.transform='';if(bg)bg.style.opacity='0';},200);
+        toggleHabit(hid,false);
+      }else{
+        inner.style.transform='';
+        if(bg)bg.style.opacity='0';
+        setTimeout(()=>inner.style.transition='',200);
+      }
+      x0=null;
+    },{passive:true});
+  });
+}
+
+// ── DRAG & DROP: reordenar hábitos ──────────────────────────────────────────
+let _dragSrcId=null,_dragGhost=null,_dragSrcEl=null;
+function _habitDragSetup(){
+  const list=document.getElementById('habitList');
+  if(!list)return;
+  list.querySelectorAll('[data-drag]').forEach(handle=>{
+    handle.addEventListener('touchstart',_habitDragStart,{passive:false});
+  });
+}
+function _habitDragStart(e){
+  e.preventDefault();
+  const handle=e.currentTarget;
+  _dragSrcId=parseInt(handle.getAttribute('data-drag'),10);
+  // buscar el habit-item o habit-swipe-wrap raíz
+  _dragSrcEl=handle.closest('.habit-swipe-wrap')||handle.closest('.habit-item');
+  if(!_dragSrcEl)return;
+  const rect=_dragSrcEl.getBoundingClientRect();
+  // Ghost
+  _dragGhost=_dragSrcEl.cloneNode(true);
+  _dragGhost.className=_dragGhost.className+' habit-drag-ghost';
+  _dragGhost.style.width=rect.width+'px';
+  _dragGhost.style.top=rect.top+'px';
+  _dragGhost.style.left=rect.left+'px';
+  document.body.appendChild(_dragGhost);
+  _dragSrcEl.classList.add('drag-source');
+  document.addEventListener('touchmove',_habitDragMove,{passive:false});
+  document.addEventListener('touchend',_habitDragEnd,{passive:true});
+}
+function _habitDragMove(e){
+  e.preventDefault();
+  if(!_dragGhost)return;
+  const t=e.touches[0];
+  const rect=_dragGhost.getBoundingClientRect();
+  _dragGhost.style.top=(t.clientY-rect.height/2)+'px';
+  // Indicar drop target
+  const list=document.getElementById('habitList');
+  if(!list)return;
+  list.querySelectorAll('.habit-swipe-wrap,.habit-item:not(.drag-source)').forEach(el=>{
+    el.classList.remove('drag-over-top','drag-over-bot');
+    const r=el.getBoundingClientRect();
+    const mid=r.top+r.height/2;
+    if(t.clientY>r.top&&t.clientY<=r.bottom){
+      el.classList.add(t.clientY<mid?'drag-over-top':'drag-over-bot');
+    }
+  });
+}
+function _habitDragEnd(e){
+  document.removeEventListener('touchmove',_habitDragMove);
+  document.removeEventListener('touchend',_habitDragEnd);
+  if(_dragGhost){_dragGhost.remove();_dragGhost=null;}
+  if(_dragSrcEl)_dragSrcEl.classList.remove('drag-source');
+  const list=document.getElementById('habitList');
+  if(!list||_dragSrcId===null){_dragSrcId=null;_dragSrcEl=null;return;}
+  // Determinar posición drop
+  let dropBeforeId=null,dropAfter=false;
+  const t=e.changedTouches[0];
+  list.querySelectorAll('.habit-swipe-wrap,[data-hid]').forEach(el=>{
+    el.classList.remove('drag-over-top','drag-over-bot');
+    const hid=parseInt((el.querySelector('[data-hid]')||el).getAttribute('data-hid'),10);
+    if(isNaN(hid)||hid===_dragSrcId)return;
+    const r=el.getBoundingClientRect();
+    if(t.clientY>r.top&&t.clientY<=r.bottom){
+      const mid=r.top+r.height/2;
+      dropBeforeId=hid;dropAfter=t.clientY>=mid;
+    }
+  });
+  // Construir nuevo orden
+  const ids=habitData.map(h=>h.id);
+  if(dropBeforeId!==null){
+    const srcIdx=ids.indexOf(_dragSrcId);
+    let dstIdx=ids.indexOf(dropBeforeId);
+    if(srcIdx===-1||dstIdx===-1){_dragSrcId=null;_dragSrcEl=null;return;}
+    ids.splice(srcIdx,1);
+    dstIdx=ids.indexOf(dropBeforeId);
+    ids.splice(dropAfter?dstIdx+1:dstIdx,0,_dragSrcId);
+    // Reordenar habitData
+    const map=Object.fromEntries(habitData.map(h=>[h.id,h]));
+    habitData=ids.map(id=>map[id]).filter(Boolean);
+    renderHabitsView(document.getElementById('content'));
+    apiFetch(API+'/habits/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order:ids})}).catch(()=>{});
+  }
+  _dragSrcId=null;_dragSrcEl=null;
 }
 
 function openHabitModal(id){
